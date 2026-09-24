@@ -225,13 +225,19 @@
 
   .piece{position:absolute; left:0; top:0; -webkit-tap-highlight-color:transparent;
     transform: translate(calc(-50% + var(--dx,0px)), calc(-50% + var(--dy,0px))) rotate(var(--rot,0deg));}
-  .chili{touch-action:none; cursor:grab;}
+  /* the chili's box is a rotated rectangle much bigger than the pepper itself, so only the
+     painted body catches pointers — taps on the empty corners fall through to what's underneath */
+  .chili{touch-action:none; cursor:grab; pointer-events:none;}
+  .chili svg{pointer-events:none;}
+  .chili svg > path:first-child{pointer-events:visiblePainted;}
   .chili:active{cursor:grabbing;}
   .chili.fresh{opacity:0;}
   .decor{pointer-events:none;}
 
   .chicken{pointer-events:none; filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
   .chicken.free{pointer-events:auto; cursor:pointer; animation: readyPulse 2s ease-in-out infinite;}
+  /* invisible halo: a free piece accepts taps a little outside its outline */
+  .chicken.free::after{content:''; position:absolute; inset:-14%; border-radius:50%;}
   .chicken.free.big{animation: readyPulseBig 1.7s ease-in-out infinite;}
   @keyframes readyPulse{
     0%,100%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
@@ -971,6 +977,7 @@ document.addEventListener('touchmove', function(e){
   if (e.target.closest('.plate, .chili, button, [role="button"]')) e.preventDefault();
 }, {passive:false});
 </script>
+<script>
 (function(){
   "use strict";
 
@@ -979,7 +986,7 @@ document.addEventListener('touchmove', function(e){
     decorCount: 140,            // aromatic flecks (peppercorn / scallion / ginger / sesame) on a freshly built gameplay plate
     refillDecorCount: 40,       // aromatic flecks per refill pour
     dragThreshold: 20,          // px a chili must travel to count as "tossed"
-    coverFactor: 0.34,          // how much of a chili's reach counts as covering a chicken piece
+    coverOverlap: 3,            // px a chili's body must overlap a chicken piece's outline to count as covering it (higher = pieces free up sooner)
     depthBias: { chili:0, decor:-0.25, small:-0.05, big:-0.55 },   // lower = sinks deeper in the pile
 
     plates: {
@@ -1806,7 +1813,7 @@ document.addEventListener('touchmove', function(e){
     };
 
     scatter(nDecor, () => { const s = rand(9,20);  return { kind:'decor',  w:s*1.5, h:s,            rot:rand(-40,40),  bias:bias.decor }; });
-    scatter(nSmall, () => { const s = rand(24,32); return { kind:'chicken', big:false, w:s, h:s,     rot:rand(-30,30),  bias:bias.small }; });
+    scatter(nSmall, () => { const s = rand(34,42); return { kind:'chicken', big:false, w:s, h:s,     rot:rand(-30,30),  bias:bias.small }; });
     scatter(nBig,   () => { const s = rand(44,56); return { kind:'chicken', big:true,  w:s, h:s,     rot:rand(-30,30),  bias:bias.big }; });
     scatter(nChili, () => { const w = rand(26,40); return { kind:'chili',   w, h:w*rand(0.42,0.62), rot:rand(-180,180), bias:bias.chili }; });
 
@@ -1825,13 +1832,13 @@ document.addEventListener('touchmove', function(e){
       let el;
       if(it.kind === 'chicken'){
         el = makeEl('chicken' + (it.big ? ' big' : ''), it.x, it.y, it.w, it.h, it.rot, it.z, chickenSvg(it.big));
-        const chicken = { el, x:it.x, y:it.y, r:it.w/2, z:it.z, covers:0, picked:false, big:it.big, value:it.big ? 2 : 1, glowEl:null };
+        const chicken = { el, x:it.x, y:it.y, r:it.w/2, vr:it.w * (it.big ? 0.42 : 0.34), z:it.z, covers:0, picked:false, big:it.big, value:it.big ? 2 : 1, glowEl:null };
         chickenByEl.set(el, chicken);
         state.chickens.push(chicken);
         state.chickensLeft += 1;
       } else if(it.kind === 'chili'){
         el = makeEl('chili' + (fadeIn ? ' fresh' : ''), it.x, it.y, it.w, it.h, it.rot, it.z, chiliSvg());
-        const chili = { el, x:it.x, y:it.y, z:it.z, w:it.w, covering:[], dragging:false, startX:0, startY:0, dx:0, dy:0, prevZ:'' };
+        const chili = { el, x:it.x, y:it.y, z:it.z, w:it.w, h:it.h, rot:it.rot, covering:[], dragging:false, startX:0, startY:0, dx:0, dy:0, prevZ:'' };
         chiliByEl.set(el, chili);
         activeChilies.add(chili);
         newChilies.push(chili);
@@ -1841,15 +1848,22 @@ document.addEventListener('touchmove', function(e){
       frag.appendChild(el);
     }
 
-    // A chili covers a chicken piece if it sits above it (higher z) and close enough.
-    // Distances are compared squared, in real pixels, so no square roots are needed.
+    // A chili covers a chicken piece only if it sits above it (higher z) and its actual body
+    // overlaps the piece. The chili is treated as a rotated capsule (its real length, thickness
+    // and angle) and the chicken as a circle, so a chili lying beside a piece doesn't lock it.
     for(const chili of newChilies){
+      const halfThick = chili.h * 0.38;
+      const seg = Math.max(0, chili.w * 0.45 - halfThick);   // half-length of the capsule's spine
+      const ang = chili.rot * Math.PI / 180;
+      const ux = Math.cos(ang), uy = Math.sin(ang);
       for(const chicken of state.chickens){
         if(chicken.z > chili.z) continue;
-        const dx = (chicken.x - chili.x) / 100 * dim.w;
-        const dy = (chicken.y - chili.y) / 100 * dim.h;
-        const reach = (chicken.r*2 + chili.w) * CONFIG.coverFactor;
-        if(dx*dx + dy*dy < reach*reach){
+        const px = (chicken.x - chili.x) / 100 * dim.w;
+        const py = (chicken.y - chili.y) / 100 * dim.h;
+        const t = Math.max(-seg, Math.min(seg, px*ux + py*uy));   // closest point on the spine
+        const qx = px - ux*t, qy = py - uy*t;
+        const reach = halfThick + chicken.vr - CONFIG.coverOverlap;
+        if(reach > 0 && qx*qx + qy*qy < reach*reach){
           chili.covering.push(chicken);
           chicken.covers += 1;
         }
@@ -1923,7 +1937,7 @@ document.addEventListener('touchmove', function(e){
     el.style.transition = 'none';
     chili.prevZ = el.style.zIndex;
     el.style.zIndex = 1100;
-    try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    try{ els.layer.setPointerCapture(e.pointerId); }catch(err){}
     activeDrags.set(e.pointerId, chili);
   }
 
@@ -1942,7 +1956,7 @@ document.addEventListener('touchmove', function(e){
     activeDrags.delete(e.pointerId);
     if(!chili.dragging) return;
     chili.dragging = false;
-    try{ chili.el.releasePointerCapture(e.pointerId); }catch(err){}
+    try{ els.layer.releasePointerCapture(e.pointerId); }catch(err){}
 
     const { dx, dy } = chili;
     if(dx*dx + dy*dy > CONFIG.dragThreshold ** 2){
@@ -1955,7 +1969,22 @@ document.addEventListener('touchmove', function(e){
       chili.el.style.setProperty('--dx', '0px');
       chili.el.style.setProperty('--dy', '0px');
       chili.el.style.zIndex = chili.prevZ;
+      // a quick tap on a chili that's only grazing a free piece should pick the piece
+      if(e.type === 'pointerup'){
+        const under = freeChickenAt(e.clientX, e.clientY);
+        if(under) pickChicken(under);
+      }
     }
+  }
+
+  /** The free chicken piece under a screen point, if any (only free pieces take pointer events). */
+  function freeChickenAt(x, y){
+    const stack = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [];
+    for(const node of stack){
+      const el = node.closest && node.closest('.chicken.free');
+      if(el) return chickenByEl.get(el) || null;
+    }
+    return null;
   }
 
   function onLayerClick(e){

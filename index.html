@@ -108,7 +108,7 @@
   .screen .cn-title .ch:nth-child(3) .hz{color:#D9A23E;}   /* 鸡 — sesame gold */
 
   /* In-game HUD: one quiet row of numbers on the left, round icon actions on the right. */
-  .hud{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; text-shadow:0 1px 2px rgba(0,0,0,0.35);}
+  .hud{position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; text-shadow:0 1px 2px rgba(0,0,0,0.35);}
   .stats{display:flex; align-items:flex-end; gap:22px;}
   .stat{display:flex; flex-direction:column; align-items:flex-start; gap:1px;}
   .stat .label{font-size:10px; letter-spacing:0.6px; color:rgba(244,241,230,0.55);}
@@ -555,7 +555,8 @@
   .upg-mini-fill.ready{background:linear-gradient(90deg, #6E9145, #9BC46E);}
 
   /* Challenge-mode power meter: fills as chilies are tossed, then grants a brief multi-toss power-up. */
-  .power-stat{align-items:flex-start; min-width:104px; position:relative;}
+  /* Challenge power meter sits in the middle of the HUD row, between the stats and the buttons */
+  .power-stat{align-items:center; min-width:104px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);}
   .power-meter{position:relative; margin-top:14px;}
   .power-track{
     position:relative;
@@ -765,7 +766,7 @@
     <div class="stats" id="hud-stats">
       <div class="stat" id="hud-points-wrap"><span class="label">points</span><span class="value" id="hud-points">0</span></div>
       <div class="stat" id="hud-pieces-wrap"><span class="label">pieces</span><span class="value" id="hud-pieces">0</span></div>
-      <div class="stat" id="hud-found-wrap" style="display:none;"><span class="label">found</span><span class="value" id="hud-found">0</span></div>
+      <div class="stat" id="hud-found-wrap" style="display:none;"><span class="label">points</span><span class="value" id="hud-found">0</span></div>
       <div class="stat" id="hud-timer-wrap" style="display:none;"><span class="label">time</span><span class="value" id="hud-timer">30</span></div>
       <div class="stat power-stat" id="hud-power-wrap" style="display:none;">
         <span class="label" id="hud-power-label">power</span>
@@ -844,7 +845,7 @@
                   <p>Plate refills when there's none left!</p>
                 </li>
               </ul>
-              <p class="howto-values"><i class="sm"></i>Small piece = 1 <i class="lg"></i>Big piece = 2</p>
+              <p class="howto-values"><i class="sm"></i>Small piece = 2 <i class="lg"></i>Big piece = 1</p>
             </div>
           </div>
         </div>
@@ -1004,6 +1005,8 @@ document.addEventListener('touchmove', function(e){
     decorCount: 140,            // aromatic flecks (peppercorn / scallion / ginger / sesame) on a freshly built gameplay plate
     refillDecorCount: 40,       // aromatic flecks per refill pour
     dragThreshold: 20,          // px a chili must travel to count as "tossed"
+    smallPieceValue: 2,         // points for a small chicken piece (both modes)
+    bigPieceValue: 1,           // points for a big chicken piece (both modes)
     coverOverlap: 3,            // px a chili's body must overlap a chicken piece's outline to count as covering it (higher = pieces free up sooner)
     depthBias: { chili:0, decor:-0.25, small:-0.05, big:-0.55 },   // lower = sinks deeper in the pile
 
@@ -1207,7 +1210,7 @@ document.addEventListener('touchmove', function(e){
       row.innerHTML =
         `<span class="leaderboard-rank">#${i+1}</span>` +
         `<span class="leaderboard-name">${(entry.name || '----').slice(0,4)}</span>` +
-        `<span class="leaderboard-score">${entry.score} chicken</span>` +
+        `<span class="leaderboard-score">${entry.score} pts</span>` +
         `<span class="leaderboard-date">${formatLeaderboardDate(entry.date)}</span>`;
       list.appendChild(row);
     });
@@ -1850,7 +1853,7 @@ document.addEventListener('touchmove', function(e){
       let el;
       if(it.kind === 'chicken'){
         el = makeEl('chicken' + (it.big ? ' big' : ''), it.x, it.y, it.w, it.h, it.rot, it.z, chickenSvg(it.big));
-        const chicken = { el, x:it.x, y:it.y, r:it.w/2, vr:it.w * (it.big ? 0.42 : 0.34), z:it.z, covers:0, picked:false, big:it.big, value:it.big ? 2 : 1, glowEl:null };
+        const chicken = { el, x:it.x, y:it.y, r:it.w/2, vr:it.w * (it.big ? 0.42 : 0.34), z:it.z, covers:0, picked:false, big:it.big, value:it.big ? CONFIG.bigPieceValue : CONFIG.smallPieceValue, glowEl:null };
         chickenByEl.set(el, chicken);
         state.chickens.push(chicken);
         state.chickensLeft += 1;
@@ -2171,7 +2174,7 @@ document.addEventListener('touchmove', function(e){
     setTimeout(() => chicken.el.remove(), 400);
     if(chicken.glowEl){ chicken.glowEl.remove(); chicken.glowEl = null; }
 
-    const value = state.mode === 'challenge' ? 1 : chicken.value;
+    const value = chicken.value;
     state.pieces += 1;
     state.points += value;
     Sfx.pick(chicken.big, chicken.x);
@@ -2185,7 +2188,7 @@ document.addEventListener('touchmove', function(e){
       }
       floatText(chicken.x, chicken.y, '+' + value + '  +' + bonus + 's', true);
     } else {
-      floatText(chicken.x, chicken.y, '+' + value, chicken.big);
+      floatText(chicken.x, chicken.y, '+' + value, value > 1);
     }
 
     updateHud();
@@ -2200,7 +2203,7 @@ document.addEventListener('touchmove', function(e){
   function updateHud(){
     els['hud-pieces'].textContent = state.pieces;
     els['hud-points'].textContent = state.points;
-    els['hud-found'].textContent = state.pieces;
+    els['hud-found'].textContent = state.points;
     if(state.mode !== 'challenge') updateShopUI();
   }
 
@@ -2467,9 +2470,9 @@ document.addEventListener('touchmove', function(e){
 
     let isNewBest, leaderboardRank = 0, leaderboardEntry = null;
     if(isChallenge){
-      isNewBest = state.pieces > 0 && state.pieces > state.bestChallenge;
-      if(isNewBest) state.bestChallenge = state.pieces;
-      ({ rank: leaderboardRank, entry: leaderboardEntry, board: state.pendingLeaderboardBoard } = previewLeaderboard(state.pieces));
+      isNewBest = state.points > 0 && state.points > state.bestChallenge;
+      if(isNewBest) state.bestChallenge = state.points;
+      ({ rank: leaderboardRank, entry: leaderboardEntry, board: state.pendingLeaderboardBoard } = previewLeaderboard(state.points));
     } else {
       isNewBest = state.points > 0 && state.points > state.bestPoints;
       if(isNewBest){
@@ -2530,16 +2533,16 @@ document.addEventListener('touchmove', function(e){
 
   /** Fills in the end-of-run card (title, message and the stat cells). */
   function renderEndSummary(isChallenge){
-    els['end-title'].textContent = isChallenge ? tierText(CHALLENGE_END_TITLES, state.pieces) : 'Nice digging';
-    els['end-message'].textContent = isChallenge ? tierText(CHALLENGE_END_MESSAGES, state.pieces) : tierText(END_MESSAGES, state.points);
-    els['end-a'].textContent = isChallenge ? state.pieces : state.points;
-    els['end-a-label'].textContent = isChallenge ? 'chicken found' : 'points';
+    els['end-title'].textContent = isChallenge ? tierText(CHALLENGE_END_TITLES, state.points) : 'Nice digging';
+    els['end-message'].textContent = isChallenge ? tierText(CHALLENGE_END_MESSAGES, state.points) : tierText(END_MESSAGES, state.points);
+    els['end-a'].textContent = state.points;
+    els['end-a-label'].textContent = 'points';
     els['end-b'].textContent = state.pieces;
     els['end-b-label'].textContent = isChallenge ? 'chicken found' : 'pieces picked';
     els['end-c'].textContent = state.chiliesMoved;
     els['end-c-label'].textContent = 'chilies moved';
 
-    // Challenge results show a single "chicken found" stat: cell A carries it, and
+    // Challenge results show a single "points" stat: cell A carries it, and
     // the other two cells (which would repeat it / show chilies moved) are dropped.
     for(const id of ['end-b','end-c']){
       const cell = els[id] ? els[id].closest('.cell') : null;

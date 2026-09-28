@@ -443,9 +443,22 @@
   .skin-progress-wrap.hidden{display:none;}
   .skin-progress-track{flex:1; min-width:40px; height:5px; border-radius:5px; background:rgba(244,241,230,0.12); overflow:hidden;}
   .skin-progress-fill{height:100%; width:0%; border-radius:5px; background:linear-gradient(90deg, var(--gold-2), var(--gold)); transition:width 0.3s ease;}
+  /* Results card: everything lives in one block that is kept inside the round plate (see fitEndScreen) */
+  #end-screen{padding:12% 13%;}
+  .end-content{display:flex; flex-direction:column; align-items:center; gap:8px; transform-origin:50% 50%;}
+  #end-screen h2{font-size:24px; line-height:1.15;}
+  #end-screen p#end-message{font-size:13px; line-height:1.35; margin-top:-2px;}
+  #end-screen .board{margin-top:6px;}
+  #end-screen .board .cell{padding:8px 4px 6px;}
+  .end-notices{display:flex; flex-wrap:wrap; justify-content:center; gap:6px; max-width:280px;}
+  .end-notices:not(:has(.unlock-notice:not(.hidden))){display:none;}
+  #end-screen .unlock-notice{font-size:11.5px; padding:4px 11px; line-height:1.35;}
+  #end-screen .leaderboard-name-entry{flex-direction:row; gap:8px; margin:0;}
+  #end-screen .leaderboard-name-input{font-size:16px; letter-spacing:4px; width:88px; padding:6px 0 6px 4px;}
   .end-actions{display:flex; align-items:center; justify-content:center; gap:10px; margin-top:4px;}
   .end-actions .btn{margin-top:0; height:36px; padding-top:0; padding-bottom:0;}
-  .end-actions .btn.icon-btn{width:42px; padding:0;}
+  .end-actions .btn.icon-btn{width:44px; height:40px; padding:0;}
+  .end-actions .btn.icon-btn.hidden{display:none;}
   .skin-progress-wrap.owned{justify-content:center;}
   .skin-progress-wrap.owned .skin-progress-track{display:none;}
   .skin-progress-text{font-size:10.5px; color:rgba(244,241,230,0.55); white-space:nowrap;}
@@ -962,6 +975,7 @@
     </div>
 
     <div class="screen hidden" id="end-screen">
+      <div class="end-content" id="end-content">
       <h2 id="end-title">Nice digging</h2>
       <p id="end-message"></p>
       <div class="board" id="end-board">
@@ -969,15 +983,22 @@
         <div class="cell"><div class="n" id="end-b">0</div><div class="l" id="end-b-label">pieces picked</div></div>
         <div class="cell"><div class="n" id="end-c">0</div><div class="l" id="end-c-label">chilies moved</div></div>
       </div>
-      <p class="unlock-notice hidden" id="new-unlock-notice"></p>
-      <p class="unlock-notice hidden" id="leaderboard-rank-notice"></p>
+      <div class="end-notices">
+        <p class="unlock-notice hidden" id="new-unlock-notice"></p>
+        <p class="unlock-notice hidden" id="leaderboard-rank-notice"></p>
+      </div>
       <div class="leaderboard-name-entry hidden" id="leaderboard-name-entry">
-        <label class="leaderboard-name-label" for="leaderboard-name-input">Enter your name for the leaderboard</label>
+        <label class="leaderboard-name-label" for="leaderboard-name-input">Your name</label>
         <input type="text" id="leaderboard-name-input" class="leaderboard-name-input" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="YOU">
       </div>
       <div class="end-actions">
         <button class="btn ghost icon-btn" id="restart-btn" aria-label="Back" title="Back"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-        <button class="btn hidden" id="retry-btn">Retry</button>
+        <button class="btn icon-btn hidden" id="retry-btn" aria-label="Retry" title="Retry">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4.5v4.5h-4.5"/>
+          </svg>
+        </button>
+      </div>
       </div>
     </div>
   </div>
@@ -2529,7 +2550,37 @@ document.addEventListener('touchmove', function(e){
     // Challenge runs are short and score-chasing, so offer an instant rematch right from the results
     els['retry-btn'].classList.toggle('hidden', state.mode !== 'challenge');
     els['end-screen'].classList.remove('hidden');
+    fitEndScreen();
   }
+
+  /** Shrinks the results block just enough that every part of it sits inside the round plate. */
+  function fitEndScreen(){
+    const screen = els['end-screen'], content = document.getElementById('end-content');
+    if(!content || screen.classList.contains('hidden')) return;
+    content.style.transform = '';
+    const sr = screen.getBoundingClientRect();
+    const cx = sr.left + sr.width/2, cy = sr.top + sr.height/2, R = sr.width/2 * 0.92;   // keep clear of the rim
+    const overflow = () => {
+      let worst = 0;
+      content.querySelectorAll('h2, p, .cell, .leaderboard-name-entry > *, .end-actions > .btn').forEach(el => {
+        if(!el.offsetParent) return;
+        const b = el.getBoundingClientRect();
+        for(const [x, y] of [[b.left, b.top], [b.right, b.top], [b.left, b.bottom], [b.right, b.bottom]]){
+          worst = Math.max(worst, Math.hypot(x - cx, y - cy) / R);
+        }
+      });
+      return worst;
+    };
+    // scaling happens around the block's own centre, so re-measure and tighten a few times
+    let scale = 1;
+    for(let i = 0; i < 4; i++){
+      const worst = overflow();
+      if(worst <= 1) break;
+      scale *= 0.99 / worst;
+      content.style.transform = `scale(${scale.toFixed(3)})`;
+    }
+  }
+  window.addEventListener('resize', () => fitEndScreen());
 
   /** Fills in the end-of-run card (title, message and the stat cells). */
   function renderEndSummary(isChallenge){

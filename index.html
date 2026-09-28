@@ -796,7 +796,7 @@
       <div class="stat" id="hud-points-wrap"><span class="label">points</span><span class="value" id="hud-points">0</span></div>
       <div class="stat" id="hud-pieces-wrap"><span class="label">pieces</span><span class="value" id="hud-pieces">0</span></div>
       <div class="stat" id="hud-found-wrap" style="display:none;"><span class="label">points</span><span class="value" id="hud-found">0</span></div>
-      <div class="stat" id="hud-timer-wrap" style="display:none;"><span class="label">time</span><span class="value" id="hud-timer">30</span></div>
+      <div class="stat" id="hud-timer-wrap" style="display:none;"><span class="label">time</span><span class="value" id="hud-timer">60</span></div>
       <div class="stat power-stat" id="hud-power-wrap" style="display:none;">
         <span class="label" id="hud-power-label">power</span>
         <div class="power-meter">
@@ -1070,7 +1070,7 @@ document.addEventListener('touchmove', function(e){
       }
     },
     menuPlate: { small:10, big:6, chili:220, decor:0 },   // the decorative pile behind the start menu
-    challengeDurationSec: 30,
+    challengeDurationSec: 60,
     rainbow: { maxActive:2, addSeconds:3, minDelayMs:3000, maxDelayMs:4000 },   // Challenge-mode rainbow chicken
 
     sweep: {
@@ -2498,10 +2498,10 @@ document.addEventListener('touchmove', function(e){
     [Infinity, 'At this point you have cleared the restaurant out of chicken.']
   ];
   const CHALLENGE_END_TITLES = [
-    [0, '什么!?'], [10, '你可以做得更好'], [30, '其实'], [Infinity, '非常好']
+    [0, '什么!?'], [20, '你可以做得更好'], [60, '其实'], [Infinity, '非常好']
   ];
   const CHALLENGE_END_MESSAGES = [
-    [0, 'Try Again'], [10, 'Nice Try!'], [30, 'Great Job!'], [Infinity, 'Excellent Work!']
+    [0, 'Try Again'], [20, 'Nice Try!'], [60, 'Great Job!'], [Infinity, 'Excellent Work!']
   ];
   function tierText(tiers, score){
     return tiers.find(([limit]) => score <= limit)[1];

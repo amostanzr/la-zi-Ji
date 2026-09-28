@@ -1230,7 +1230,7 @@ document.addEventListener('touchmove', function(e){
     return !!skin && (id === 'classic' || state.unlockedSkins.includes(id));
   }
 
-  // Relax points pile up here; plates cost `unlockAt` points and are only unlocked when the player chooses to buy one.
+  // Relax and Challenge points pile up here; plates cost `unlockAt` points and are only unlocked when the player chooses to buy one.
   function plateBalance(){
     return Math.max(0, state.lifetimePoints - state.spentPoints);
   }
@@ -2481,9 +2481,9 @@ document.addEventListener('touchmove', function(e){
       }
     }
 
-    // Only Relax runs add to the plate-point balance (spent on the plate page).
+    // Both Relax and Challenge runs add their points to the plate-point balance (spent on the plate page).
     const balanceBefore = plateBalance();
-    if(!isChallenge) state.lifetimePoints += state.points;
+    state.lifetimePoints += state.points;
     const newlyAffordable = PLATE_SKINS.filter(sk => !isSkinUnlocked(sk.id) && sk.unlockAt > balanceBefore && sk.unlockAt <= plateBalance());
 
     saveBest();
@@ -2495,7 +2495,7 @@ document.addEventListener('touchmove', function(e){
     const unlockNotice = els['new-unlock-notice'];
     if(unlockNotice){
       let note = '';
-      if(!isChallenge && state.points > 0) note = `+${state.points} plate points`;
+      if(state.points > 0) note = `+${state.points} plate points`;
       if(newlyAffordable.length) note += (note ? ' · ' : '') + 'You can now unlock: ' + newlyAffordable.map(sk => sk.name).join(', ');
       unlockNotice.textContent = note;
       unlockNotice.classList.toggle('hidden', !note);

@@ -567,22 +567,35 @@
   .upg-mini-fill{height:100%; width:0%; background:linear-gradient(90deg, var(--gold-2), var(--gold)); transition:width 0.3s ease;}
   .upg-mini-fill.ready{background:linear-gradient(90deg, #6E9145, #9BC46E);}
 
-  /* Challenge-mode power meter: fills as chilies are tossed, then grants a brief multi-toss power-up. */
-  /* Challenge power meter sits in the middle of the HUD row, between the stats and the buttons */
-  .power-stat{align-items:center; min-width:104px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);}
-  .power-meter{position:relative; margin-top:14px;}
-  .power-track{
-    position:relative;
-    width:104px; height:11px; border-radius:8px;
-    background:rgba(0,0,0,0.35);
-    overflow:hidden;
-    border:1px solid rgba(0,0,0,0.45);
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.55);
+  /* Challenge-mode power meter: fills as chilies are tossed, then grants a brief multi-toss power-up.
+     A glass "chili-oil" tube in a raised gold frame (lit like the gold buttons), capped by a chili,
+     that stretches to fill the HUD row between the stats and the retry / settings buttons. */
+  .stats{flex:1; min-width:0;}
+  .power-stat{flex:1; min-width:112px; margin-left:-10px; align-items:stretch; position:relative;}
+  .power-stat .label{align-self:center; padding-left:22px;}
+  .power-meter{position:relative; margin-top:13px; margin-left:22px;}
+  .power-frame{
+    position:relative; height:22px; border-radius:12px; padding:3px 3px 3px 15px;
+    background:linear-gradient(180deg, #FCE8AE 0%, #E6B052 50%, #B98128 100%);
+    box-shadow:0 3px 0 #7A4B12, 0 6px 10px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.7);
+    transition:box-shadow 0.25s ease;
   }
+  .power-meter.active .power-frame{box-shadow:0 3px 0 #7A4B12, 0 6px 10px rgba(0,0,0,0.45), 0 0 16px 3px rgba(255,190,90,0.85), inset 0 1px 0 rgba(255,255,255,0.7);}
+  .power-track{
+    position:relative; height:100%; border-radius:9px; overflow:hidden;
+    background:linear-gradient(180deg, #1E0F07, #3A1C0C 60%, #2A140A);
+    box-shadow:inset 0 2px 4px rgba(0,0,0,0.8), inset 0 -1px 0 rgba(255,255,255,0.08);
+  }
+  .power-ticks{position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(90deg, transparent 0 25%, rgba(255,255,255,0.14) 25% calc(25% + 1px));}
+  .power-chili{
+    position:absolute; left:-22px; top:50%; width:44px; height:44px; margin-top:-24px; z-index:2; pointer-events:none;
+    filter:drop-shadow(0 2px 2px rgba(0,0,0,0.5)); transition:filter 0.25s ease;
+  }
+  .power-meter.active .power-chili{filter:drop-shadow(0 2px 2px rgba(0,0,0,0.5)) drop-shadow(0 0 6px rgba(255,200,110,0.9));}
 
   /* small flames dancing along the top edge of the track, intensifying with heat */
   .power-flames{
-    position:absolute; left:2px; right:2px; bottom:100%;
+    position:absolute; left:26px; right:10px; bottom:calc(100% - 2px); z-index:1;
     height:0; display:flex; justify-content:space-between; align-items:flex-end;
     pointer-events:none;
   }
@@ -607,14 +620,14 @@
     animation-name:flameFlicker; animation-duration:0.5s; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
   }
   .power-flames.active .flame{
-    height:17px; opacity:1;
+    height:13px; opacity:1;
     filter: drop-shadow(0 0 8px rgba(255,180,80,0.9));
     animation-name:flameFlicker, flameSway;
     animation-duration:0.3s, 0.55s;
     animation-timing-function:ease-in-out, ease-in-out;
     animation-iteration-count:infinite, infinite;
   }
-  .power-flames.active .flame:nth-child(3){ height:21px; }
+  .power-flames.active .flame:nth-child(3){ height:16px; }
   @keyframes flameFlicker{
     0%,100%{ transform:scaleY(1) scaleX(1); }
     50%{ transform:scaleY(1.3) scaleX(0.8); }
@@ -625,33 +638,35 @@
   }
 
   .power-fill{
-    position:relative; height:100%; width:0%;
-    background:linear-gradient(90deg, #6E170A, #C43A21 55%, #E2543A);
-    transition:width 0.15s ease-out, box-shadow 0.25s ease, background 0.3s ease;
+    position:absolute; left:0; top:0; bottom:0; width:0%; border-radius:9px;
+    background:linear-gradient(180deg, #FF8A5C 0%, #E2472C 35%, #A8200F 75%, #6E1208 100%);
+    box-shadow:inset -2px 0 3px rgba(0,0,0,0.35);
+    transition:width 0.15s ease-out, box-shadow 0.25s ease;
   }
-  .power-fill::after{
-    /* drifting ember texture */
-    content:''; position:absolute; inset:0;
-    background:repeating-linear-gradient(115deg, rgba(255,255,255,0.25) 0 4px, transparent 4px 11px);
-    mix-blend-mode:overlay;
-    animation: emberDrift 1s linear infinite;
+  .power-fill::before{   /* glassy shine line */
+    content:''; position:absolute; left:4px; right:4px; top:2px; height:4px; border-radius:3px; background:rgba(255,255,255,0.45);
   }
-  @keyframes emberDrift{ from{ background-position:0 0; } to{ background-position:-30px 0; } }
-  .power-fill.warm{ box-shadow: 0 0 7px 1px rgba(226,84,58,0.55); }
+  .power-fill::after{    /* bubbles rising in the chili oil */
+    content:''; position:absolute; inset:0; border-radius:9px;
+    background:
+      radial-gradient(circle at 20% 65%, rgba(255,220,150,0.55) 0 1.5px, transparent 2px),
+      radial-gradient(circle at 55% 70%, rgba(255,220,150,0.5) 0 1.2px, transparent 1.8px),
+      radial-gradient(circle at 80% 60%, rgba(255,220,150,0.5) 0 1.5px, transparent 2px);
+    animation: oilBubbles 1.6s ease-in-out infinite alternate;
+  }
+  @keyframes oilBubbles{ from{ transform:translateY(1px); } to{ transform:translateY(-1.5px); } }
+  .power-fill.warm{ box-shadow:inset -2px 0 3px rgba(0,0,0,0.35), 0 0 7px rgba(226,84,58,0.55); }
   .power-fill.hot{
-    background:linear-gradient(90deg, #8A2410, #E2543A 45%, #FF9A4D 85%, #FFCB6E);
-    box-shadow: 0 0 12px 2px rgba(255,154,60,0.8);
+    background:linear-gradient(180deg, #FFD28A 0%, #FF8A3D 35%, #E2472C 75%, #A8200F 100%);
+    box-shadow:0 0 10px rgba(255,140,60,0.8);
     animation: emberFlicker 0.35s ease-in-out infinite alternate;
   }
-  @keyframes emberFlicker{ from{ filter:brightness(1); } to{ filter:brightness(1.3); } }
+  @keyframes emberFlicker{ from{ filter:brightness(1); } to{ filter:brightness(1.18); } }
   .power-fill.active{
     width:100% !important;
-    background:linear-gradient(90deg, #E2543A, #FFD97A, #E2543A);
-    background-size:300% 100%;
-    animation: powerBlaze 0.45s linear infinite;
-    box-shadow: 0 0 16px 3px rgba(255,190,90,0.9), 0 0 32px 7px rgba(226,84,58,0.55);
+    background:linear-gradient(180deg, #FFF3C4 0%, #FFD97A 30%, #FF9A3D 70%, #E2472C 100%);
+    animation: emberFlicker 0.3s ease-in-out infinite alternate;
   }
-  @keyframes powerBlaze{ from{background-position:0% 0;} to{background-position:300% 0;} }
   .power-stat .label{transition:color 0.2s ease, text-shadow 0.2s ease;}
   .power-stat .label.warm{color:#F0A15E;}
   .power-stat .label.hot{color:#FFB25E; text-shadow:0 0 6px rgba(255,150,60,0.65);}
@@ -702,6 +717,7 @@
     .settings-panel{width:210px;}
   }
   @media (prefers-reduced-motion: reduce){
+    .power-fill::after, .power-fill.hot, .power-fill.active{animation:none;}
     .chicken.free, .chicken.free.big{animation:none;}
     .chicken.rainbow, .chicken.rainbow.big, .chicken.rainbow::before{animation:none;}
     #zen-btn, #challenge-btn, .chip i, .steam, .screen .cn-title .hz, #settings-btn.nudge{animation:none;}
@@ -787,7 +803,16 @@
           <div class="power-flames" id="power-flames">
             <span class="flame"></span><span class="flame"></span><span class="flame"></span><span class="flame"></span><span class="flame"></span>
           </div>
-          <div class="power-track"><div class="power-fill" id="power-fill"></div></div>
+          <div class="power-frame"><div class="power-track"><div class="power-fill" id="power-fill"></div><div class="power-ticks"></div></div></div>
+          <svg class="power-chili" viewBox="-40 -40 80 80" aria-hidden="true">
+            <defs><linearGradient id="gPowerPod" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E4533A"/><stop offset=".5" stop-color="#B8281A"/><stop offset="1" stop-color="#6E140F"/></linearGradient></defs>
+            <g transform="rotate(62) scale(.1)">
+              <path d="M-250,-70 C-120,-122 60,-112 190,-60 C255,-32 300,10 330,60 C290,40 230,30 170,34 C40,44 -120,80 -250,72 C-300,70 -318,-50 -250,-70 Z" fill="url(#gPowerPod)" stroke="#4E0F0A" stroke-width="16"/>
+              <path d="M-215,-44 C-100,-86 60,-82 170,-44" stroke="#FF8C6B" stroke-width="26" fill="none" stroke-linecap="round" opacity=".55"/>
+              <path d="M-262,-62 C-300,-40 -306,50 -262,66 C-240,40 -236,-30 -262,-62 Z" fill="#5E7F34" stroke="#2F4418" stroke-width="12"/>
+              <path d="M-282,0 C-320,-4 -352,-24 -372,-58" stroke="#5E7F34" stroke-width="30" fill="none" stroke-linecap="round"/>
+            </g>
+          </svg>
         </div>
       </div>
     </div>
@@ -2102,6 +2127,8 @@ document.addEventListener('touchmove', function(e){
     fillEl.classList.remove('warm','hot','active');
     labelEl.classList.remove('warm','hot','active');
     flamesEl.classList.remove('warm','hot','active');
+    const meterEl = fillEl.closest('.power-meter');
+    if(meterEl) meterEl.classList.toggle('active', !!state.powerActive);
     if(state.powerActive){
       fillEl.style.width = '100%';
       fillEl.classList.add('active');

@@ -25,7 +25,7 @@
     -webkit-text-size-adjust:100%;
     text-size-adjust:100%;
     overscroll-behavior:none;
-    background:#6E4425;
+    background:#5A3620;   /* same as the bottom of the wood, so nothing ever shows as a flat band */
   }
   body{
     -webkit-touch-callout:none;
@@ -52,7 +52,7 @@
     background:
       repeating-linear-gradient(90deg, rgba(0,0,0,0.05) 0 2px, rgba(255,255,255,0.025) 2px 5px, rgba(0,0,0,0) 5px 14px),
       linear-gradient(180deg, var(--wood-1), var(--wood-2) 55%, var(--wood-3));
-    min-height:100vh; min-height:100dvh;
+    min-height:100vh; min-height:100dvh; min-height:var(--full-h, 100dvh);
     display:flex; align-items:center; justify-content:center;
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
     color:var(--porcelain);
@@ -61,15 +61,18 @@
   /* The plate is the only in-flow child of .app, so it sits dead centre on every screen
      (menu, gameplay, end). The HUD rows float just above it and never push it down;
      --chrome-h is the room reserved for them, which caps the plate on short screens. */
+  /* --full-h: the real screen height (set by syncFullHeight); an iPhone home-screen app reports
+     a viewport one status bar short, which used to leave a bare band at the bottom */
   :root{--chrome-h:118px;}
   .app{
     width:100%; max-width:min(880px, calc(100vh - 2 * var(--chrome-h) - 44px));
     max-width:min(880px, calc(100dvh - 2 * var(--chrome-h) - 44px));
+    max-width:min(880px, calc(var(--full-h, 100dvh) - 2 * var(--chrome-h) - 44px));
     position:relative; z-index:1;
   }
   .game-chrome{position:absolute; left:0; right:0; bottom:calc(100% + 6px); z-index:1600;}
 
-  .table-deco{position:fixed; inset:0; z-index:0; pointer-events:none;}
+  .table-deco{position:fixed; left:0; right:0; top:0; height:100%; height:var(--full-h, 100%); z-index:0; pointer-events:none;}
   .table-deco svg{position:absolute; overflow:visible;}
 
   .deco-chopsticks{position:fixed; filter:drop-shadow(0 3px 4px rgba(0,0,0,0.35));}
@@ -1124,6 +1127,25 @@ document.addEventListener('touchmove', function(e){
     pendingLeaderboardEntry:null, pendingLeaderboardBoard:null, rainbowActive:0, rainbowTimer:null,
     selectedSkin:'classic', previewSkin:null
   };
+
+  // ============ screen height ============
+  // Launched from the iPhone home screen, the game draws under the status bar but the browser
+  // still reports a viewport one status bar short, so 100vh / innerHeight stop ~50–60px above
+  // the bottom edge. Use the physical screen height there instead (portrait or landscape).
+  function fullScreenHeight(){
+    const h = window.innerHeight;
+    const standalone = window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if(!standalone || !window.screen) return h;
+    const landscape = window.innerWidth > window.innerHeight;
+    const screenH = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+    // only trust it when it's the "missing status bar" case, not some unrelated mismatch
+    return (screenH > h && screenH - h <= 120) ? screenH : h;
+  }
+  function syncFullHeight(){
+    document.documentElement.style.setProperty('--full-h', fullScreenHeight() + 'px');
+  }
+  syncFullHeight();
 
   // ============ DOM lookups ============
   const els = {};
@@ -2960,7 +2982,7 @@ document.addEventListener('touchmove', function(e){
     const cy = r.top + r.height/2;
     const radius = r.width/2;
     const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const vh = fullScreenHeight();
 
     // Treat the HUD bar and subbar as real exclusion zones (only when actually
     // visible, i.e. during gameplay) so decorations never sit under the stats
@@ -3321,10 +3343,13 @@ document.addEventListener('touchmove', function(e){
   }
 
   let layoutResizeTimer = null;
-  window.addEventListener('resize', () => {
+  function onViewportChange(){
+    syncFullHeight();
     clearTimeout(layoutResizeTimer);
     layoutResizeTimer = setTimeout(layoutTableScene, 120);
-  });
+  }
+  window.addEventListener('resize', onViewportChange);
+  window.addEventListener('orientationchange', onViewportChange);
 
   // ============ boot ============
   loadBest();

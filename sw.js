@@ -1,4 +1,4 @@
-const CACHE = "laziji-v4";
+const CACHE = "laziji-v5";
 const CORE = [
   "./",
   "./index.html",
@@ -25,6 +25,19 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
+  // The game page itself: always try the network first so updates show up straight away,
+  // and fall back to the saved copy only when offline.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        const copy = response.clone();
+        caches.open(CACHE).then(cache => cache.put("./index.html", copy));
+        return response;
+      }).catch(() => caches.match("./index.html").then(r => r || caches.match("./")))
+    );
+    return;
+  }
+  // Icons, manifest and other files: cache first, they rarely change.
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;

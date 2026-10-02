@@ -1056,7 +1056,7 @@ document.addEventListener('touchmove', function(e){
     dragThreshold: 20,          // px a chili must travel to count as "tossed"
     smallPieceValue: 2,         // points for a small chicken piece (both modes)
     bigPieceValue: 1,           // points for a big chicken piece (both modes)
-    coverOverlap: 3,            // px a chili's body must overlap a chicken piece's outline to count as covering it (higher = pieces free up sooner)
+    coverFraction: 0.15,        // share of a chicken piece that chilies on top must hide for it to stay locked (higher = pieces free up sooner)
     depthBias: { chili:0, decor:-0.25, small:-0.05, big:-0.55 },   // lower = sinks deeper in the pile
 
     plates: {
@@ -1805,6 +1805,7 @@ document.addEventListener('touchmove', function(e){
   function chiliSvg(){
     var grad = pick(['gChiliA','gChiliB','gChiliC']);
     var v = randInt(0,2), seeds='', i;
+    chiliSvg.shape = v;   // which outline in CHILI_SHAPES this drawing uses
     if(v===0){
       for(i=0;i<3;i++) seeds += '<circle cx="'+rand(9,17).toFixed(1)+'" cy="'+rand(9,17).toFixed(1)+'" r="'+rand(1.2,2).toFixed(1)+'" fill="#E9DCAE" opacity="0.9"/>';
       return '<svg viewBox="0 0 62 26" width="100%" height="100%">' +
@@ -1866,6 +1867,78 @@ document.addEventListener('touchmove', function(e){
     return { w: r.width || 820, h: r.height || 560 };
   }
 
+  // ============ cover geometry ============
+  // "Covered" is decided from the real drawn outlines: the same SVG paths the artwork uses,
+  // sampled into polygons, then scaled / rotated exactly as each piece is placed on the plate.
+  // A chicken piece carries a set of points spread across its body; it stays locked while
+  // chilies lying on top of it hide at least CONFIG.coverFraction of those points.
+  function pathToPolygon(d, steps){
+    const pts = [];
+    let x = 0, y = 0;
+    const re = /([MLQZ])([^MLQZ]*)/gi;
+    let m;
+    while((m = re.exec(d))){
+      const n = (m[2].match(/-?[\d.]+/g) || []).map(Number);
+      const cmd = m[1].toUpperCase();
+      if(cmd === 'M' || cmd === 'L'){ x = n[0]; y = n[1]; pts.push([x, y]); }
+      else if(cmd === 'Q'){
+        const [cx, cy, ex, ey] = n;
+        for(let i = 1; i <= steps; i++){
+          const t = i / steps, u = 1 - t;
+          pts.push([u*u*x + 2*u*t*cx + t*t*ex, u*u*y + 2*u*t*cy + t*t*ey]);
+        }
+        x = ex; y = ey;
+      }
+    }
+    return pts;
+  }
+  function pointInPolygon(px, py, poly){
+    let inside = false;
+    for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+      const [xi, yi] = poly[i], [xj, yj] = poly[j];
+      if((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function interiorSamples(poly, vbW, vbH, step){
+    const out = [];
+    for(let y = step/2; y < vbH; y += step) for(let x = step/2; x < vbW; x += step){
+      if(pointInPolygon(x, y, poly)) out.push([x, y]);
+    }
+    return out;
+  }
+  const CHILI_SHAPES = [   // index = chiliSvg.shape
+    { vbW:62, vbH:26, poly: pathToPolygon('M8,3 L56,5 Q61,13 56,21 L8,23 Q2,13 8,3 Z', 6) },
+    { vbW:58, vbH:30, poly: pathToPolygon('M5,20 Q16,3 34,4 Q52,5 54,14 Q56,23 44,26 Q24,29 5,20 Z', 6) },
+    { vbW:42, vbH:26, poly: pathToPolygon('M4,7 Q14,1 30,4 Q40,6 38,15 Q36,24 22,24 Q8,23 4,16 Z', 6) }
+  ];
+  const CHICKEN_SHAPES = {
+    small: (() => { const poly = pathToPolygon('M26,46 Q20,26 42,18 Q62,10 78,26 Q90,40 82,58 Q72,80 50,84 Q30,86 24,66 Q20,54 26,46 Z', 6);
+                    return { vbW:100, vbH:100, poly, samples: interiorSamples(poly, 100, 100, 7) }; })(),
+    big:   (() => { const poly = pathToPolygon('M20,44 Q12,20 36,11 Q60,1 80,17 Q97,32 87,53 Q95,75 68,89 Q43,99 24,81 Q6,66 20,44 Z', 6);
+                    return { vbW:100, vbH:100, poly, samples: interiorSamples(poly, 100, 100, 7) }; })()
+  };
+  /** Maps viewBox points of a piece's SVG to plate pixels (fit inside its box, centred, rotated). */
+  function placePoints(pts, shape, it, dim){
+    const s = Math.min(it.w / shape.vbW, it.h / shape.vbH);
+    const ox = (it.w - shape.vbW * s) / 2 - it.w / 2, oy = (it.h - shape.vbH * s) / 2 - it.h / 2;
+    const a = it.rot * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+    const cx = it.x / 100 * dim.w, cy = it.y / 100 * dim.h;
+    return pts.map(([lx, ly]) => {
+      const bx = ox + lx * s, by = oy + ly * s;
+      return [cx + bx * ca - by * sa, cy + bx * sa + by * ca];
+    });
+  }
+  function bboxOf(pts){
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for(const [x, y] of pts){ if(x < x0) x0 = x; if(x > x1) x1 = x; if(y < y0) y0 = y; if(y > y1) y1 = y; }
+    return { x0, y0, x1, y1 };
+  }
+  /** Re-derives whether a piece is locked from how many of its points are currently hidden. */
+  function updateChickenCover(chicken){
+    chicken.covers = chicken.hiddenSamples >= Math.max(1, Math.ceil(chicken.samples.length * CONFIG.coverFraction)) ? 1 : 0;
+  }
+
   function makeEl(cls, x, y, w, h, rot, z, html){
     const d = document.createElement('div');
     d.className = 'piece ' + cls;
@@ -1921,13 +1994,18 @@ document.addEventListener('touchmove', function(e){
       let el;
       if(it.kind === 'chicken'){
         el = makeEl('chicken' + (it.big ? ' big' : ''), it.x, it.y, it.w, it.h, it.rot, it.z, chickenSvg(it.big));
-        const chicken = { el, x:it.x, y:it.y, r:it.w/2, vr:it.w * (it.big ? 0.42 : 0.34), z:it.z, covers:0, picked:false, big:it.big, value:it.big ? CONFIG.bigPieceValue : CONFIG.smallPieceValue, glowEl:null };
+        const shape = it.big ? CHICKEN_SHAPES.big : CHICKEN_SHAPES.small;
+        const samples = placePoints(shape.samples, shape, it, dim);
+        const chicken = { el, x:it.x, y:it.y, r:it.w/2, z:it.z, covers:0, picked:false, big:it.big, value:it.big ? CONFIG.bigPieceValue : CONFIG.smallPieceValue, glowEl:null,
+                          samples, sampleCover:new Uint8Array(samples.length), hiddenSamples:0, box:bboxOf(placePoints(shape.poly, shape, it, dim)) };
         chickenByEl.set(el, chicken);
         state.chickens.push(chicken);
         state.chickensLeft += 1;
       } else if(it.kind === 'chili'){
         el = makeEl('chili' + (fadeIn ? ' fresh' : ''), it.x, it.y, it.w, it.h, it.rot, it.z, chiliSvg());
-        const chili = { el, x:it.x, y:it.y, z:it.z, w:it.w, h:it.h, rot:it.rot, covering:[], dragging:false, startX:0, startY:0, dx:0, dy:0, prevZ:'' };
+        const outline = placePoints(CHILI_SHAPES[chiliSvg.shape].poly, CHILI_SHAPES[chiliSvg.shape], it, dim);
+        const chili = { el, x:it.x, y:it.y, z:it.z, w:it.w, h:it.h, rot:it.rot, covering:[], dragging:false, startX:0, startY:0, dx:0, dy:0, prevZ:'',
+                        outline, box:bboxOf(outline) };
         chiliByEl.set(el, chili);
         activeChilies.add(chili);
         newChilies.push(chili);
@@ -1937,27 +2015,27 @@ document.addEventListener('touchmove', function(e){
       frag.appendChild(el);
     }
 
-    // A chili covers a chicken piece only if it sits above it (higher z) and its actual body
-    // overlaps the piece. The chili is treated as a rotated capsule (its real length, thickness
-    // and angle) and the chicken as a circle, so a chili lying beside a piece doesn't lock it.
+    // A chili hides the parts of a chicken piece that lie inside its drawn outline, if it sits
+    // above that piece (higher z). Each piece tracks which of its points are hidden and by how
+    // many chilies, so tossing one chili uncovers exactly what it was hiding.
+    const touched = new Set();
     for(const chili of newChilies){
-      const halfThick = chili.h * 0.38;
-      const seg = Math.max(0, chili.w * 0.45 - halfThick);   // half-length of the capsule's spine
-      const ang = chili.rot * Math.PI / 180;
-      const ux = Math.cos(ang), uy = Math.sin(ang);
+      const cb = chili.box;
       for(const chicken of state.chickens){
-        if(chicken.z > chili.z) continue;
-        const px = (chicken.x - chili.x) / 100 * dim.w;
-        const py = (chicken.y - chili.y) / 100 * dim.h;
-        const t = Math.max(-seg, Math.min(seg, px*ux + py*uy));   // closest point on the spine
-        const qx = px - ux*t, qy = py - uy*t;
-        const reach = halfThick + chicken.vr - CONFIG.coverOverlap;
-        if(reach > 0 && qx*qx + qy*qy < reach*reach){
-          chili.covering.push(chicken);
-          chicken.covers += 1;
-        }
+        if(chicken.z > chili.z || chicken.picked) continue;
+        const kb = chicken.box;
+        if(cb.x1 < kb.x0 || cb.x0 > kb.x1 || cb.y1 < kb.y0 || cb.y0 > kb.y1) continue;
+        const idx = [];
+        chicken.samples.forEach(([x, y], i) => {
+          if(x >= cb.x0 && x <= cb.x1 && y >= cb.y0 && y <= cb.y1 && pointInPolygon(x, y, chili.outline)) idx.push(i);
+        });
+        if(!idx.length) continue;
+        chili.covering.push({ chicken, idx });
+        for(const i of idx){ if(chicken.sampleCover[i]++ === 0) chicken.hiddenSamples += 1; }
+        touched.add(chicken);
       }
     }
+    touched.forEach(updateChickenCover);
 
     els.layer.appendChild(frag);
     if(fadeIn) fadeInChilies(newChilies);
@@ -2094,8 +2172,9 @@ document.addEventListener('touchmove', function(e){
     updateHud();
 
     // whatever this chili was covering may now be free
-    for(const chicken of chili.covering){
-      chicken.covers -= 1;
+    for(const { chicken, idx } of chili.covering){
+      for(const i of idx){ if(--chicken.sampleCover[i] === 0) chicken.hiddenSamples -= 1; }
+      updateChickenCover(chicken);
       if(chicken.covers <= 0 && !chicken.picked) chicken.el.classList.add('free');
     }
     setTimeout(() => el.remove(), 300);

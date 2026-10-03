@@ -11,6 +11,8 @@
   --danger: #b3261e;
   --notice-bg: #fff4dc;
   --bar: #7a4b2a;
+  --mark: #ffe58a;
+  --mark-text: #2a2522;
   --radius: 10px;
   color-scheme: light;
 }
@@ -26,6 +28,8 @@
     --danger: #ff8a80;
     --notice-bg: #3a3020;
     --bar: #3b2616;
+    --mark: #6b5313;
+    --mark-text: #fff6dc;
     color-scheme: dark;
   }
 }
@@ -40,6 +44,8 @@
   --danger: #ff8a80;
   --notice-bg: #3a3020;
   --bar: #3b2616;
+  --mark: #6b5313;
+  --mark-text: #fff6dc;
   color-scheme: dark;
 }
 
@@ -144,9 +150,9 @@ blockquote {
 .entry-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .notes { list-style: none; padding: 0; margin: 0 0 8px; }
 .note { border-top: 1px dashed var(--border); padding: 8px 0; }
-.note .body { margin: 0 0 4px; white-space: pre-wrap; }
+.note .body { margin: 0 0 4px; }
 .from { font-size: .9rem; color: var(--muted); margin-bottom: 6px; }
-.shared-note { white-space: pre-wrap; background: var(--bg); border-radius: 8px; padding: 8px 12px; margin: 0 0 8px; }
+.shared-note { background: var(--bg); border-radius: 8px; padding: 8px 12px; margin: 0 0 8px; }
 
 dialog {
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -160,3 +166,29 @@ dialog h3 { margin-top: 0; }
   background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 8px;
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* Formatted notes */
+.rich { overflow-wrap: anywhere; }
+.rich > * { margin: 0 0 6px; }
+.rich > :last-child { margin-bottom: 0; }
+.rich ul, .rich ol { padding-left: 1.4em; }
+.rich blockquote {
+  font-family: inherit; font-size: inherit; color: var(--muted);
+  border-left: 3px solid var(--border); padding: 2px 0 2px 10px;
+}
+.rich mark, .format-bar mark { background: var(--mark); color: var(--mark-text); padding: 0 2px; border-radius: 3px; }
+
+.format-bar { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
+.format-bar button {
+  flex: 0 0 auto; min-width: 40px; min-height: 36px; padding: 4px 10px;
+  background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 500;
+}
+.format-bar button:active { background: var(--border); }
+.format-bar b { font-weight: 800; }
+.note-preview {
+  border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; font-size: .95rem;
+}
+.note-preview::before {
+  content: "Preview"; display: block; font-size: .7rem; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+}

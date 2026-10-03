@@ -242,6 +242,115 @@ async function loadJournal() {
   $('#journal-empty').hidden = entries.length > 0;
 }
 
+// ---------- note formatting toolbar ----------
+
+const truncate = (text, max) => (text.length > max ? `${text.slice(0, max)}…` : text);
+
+const FORMAT_BUTTONS = [
+  { label: 'B', title: 'Bold', tag: 'b', wrap: '**' },
+  { label: 'I', title: 'Italic', tag: 'i', wrap: '*' },
+  { label: 'U', title: 'Underline', tag: 'u', wrap: '__' },
+  { label: 'H', title: 'Highlight', tag: 'mark', wrap: '==' },
+  { label: '• List', title: 'Bullet list', line: 'bullet' },
+  { label: '1. List', title: 'Numbered list', line: 'number' },
+  { label: '❝ Quote', title: 'Quote', line: 'quote' },
+];
+
+const LINE_PREFIX = {
+  bullet: { re: /^\s*[-•*]\s+/, make: () => '- ' },
+  number: { re: /^\s*\d{1,3}[.)]\s+/, make: (i) => `${i + 1}. ` },
+  quote: { re: /^\s*>\s?/, make: () => '> ' },
+};
+const ANY_PREFIX = /^\s*(?:[-•*]\s+|\d{1,3}[.)]\s+|>\s?)/;
+
+// Puts `marker` around the selected text, or takes it off if already there.
+function wrapSelection(ta, marker) {
+  let { selectionStart: start, selectionEnd: end, value } = ta;
+  // Phones often select a word with its trailing space; keep markers tight.
+  while (end > start && /\s/.test(value[end - 1])) end--;
+  while (start < end && /\s/.test(value[start])) start++;
+  const n = marker.length;
+  const selected = value.slice(start, end);
+  if (value.slice(start - n, start) === marker && value.slice(end, end + n) === marker) {
+    ta.setRangeText(selected, start - n, end + n, 'select');
+  } else if (selected.length >= 2 * n && selected.startsWith(marker) && selected.endsWith(marker)) {
+    ta.setRangeText(selected.slice(n, -n), start, end, 'select');
+  } else {
+    ta.setRangeText(marker + selected + marker, start, end, 'end');
+    ta.setSelectionRange(start + n, start + n + selected.length);
+  }
+}
+
+// Turns the selected lines into a list or quote, or back into plain lines.
+function prefixLines(ta, kind) {
+  const { selectionStart, selectionEnd, value } = ta;
+  const start = value.lastIndexOf('\n', selectionStart - 1) + 1;
+  let end = value.indexOf('\n', selectionEnd > selectionStart ? selectionEnd - 1 : selectionEnd);
+  if (end === -1) end = value.length;
+  const lines = value.slice(start, end).split('\n');
+  const { re, make } = LINE_PREFIX[kind];
+  const filled = lines.filter((l) => l.trim());
+  const already = filled.length > 0 && filled.every((l) => re.test(l));
+  let i = 0;
+  const block = lines
+    .map((l) => {
+      if (already) return l.replace(re, '');
+      if (!l.trim() && lines.length > 1) return l;
+      return make(i++) + l.replace(ANY_PREFIX, '');
+    })
+    .join('\n');
+  ta.setRangeText(block, start, end, 'end');
+}
+
+// Adds the toolbar above a note box and a live preview below it.
+function addFormatting(ta) {
+  const bar = document.createElement('div');
+  bar.className = 'format-bar';
+  bar.setAttribute('role', 'toolbar');
+  bar.setAttribute('aria-label', 'Formatting');
+  for (const f of FORMAT_BUTTONS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.title = f.title;
+    b.setAttribute('aria-label', f.title);
+    if (f.tag) {
+      const t = document.createElement(f.tag);
+      t.textContent = f.label;
+      b.append(t);
+    } else {
+      b.textContent = f.label;
+    }
+    // Keep the keyboard up and the selection in place when tapping.
+    b.addEventListener('pointerdown', (e) => e.preventDefault());
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', () => {
+      ta.focus();
+      if (f.wrap) wrapSelection(ta, f.wrap);
+      else prefixLines(ta, f.line);
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    bar.append(b);
+  }
+  ta.before(bar);
+
+  const preview = document.createElement('div');
+  preview.className = 'note-preview rich';
+  preview.hidden = true;
+  preview.setAttribute('aria-label', 'Preview');
+  ta.after(preview);
+  const update = () => {
+    // Grow with the text so longer notes don't scroll inside a small box.
+    ta.style.height = 'auto';
+    if (ta.scrollHeight) ta.style.height = `${Math.min(ta.scrollHeight + 2, 320)}px`;
+    const show = NoteFormat.hasFormatting(ta.value);
+    preview.hidden = !show;
+    if (show) preview.innerHTML = NoteFormat.toHtml(ta.value);
+  };
+  ta.addEventListener('input', update);
+  ta.form.addEventListener('reset', () => setTimeout(update));
+  return update;
+}
+
 function renderEntry(entry) {
   const el = fromTemplate('#entry-tpl');
   $('.ref', el).textContent = entry.reference;
@@ -256,6 +365,7 @@ function renderEntry(entry) {
     await api(`/api/journal/${entry.id}`, { method: 'DELETE' });
     loadJournal();
   });
+  addFormatting($('.note-form textarea', el));
   $('.note-form', el).addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = new FormData(e.target);
@@ -271,7 +381,8 @@ function renderEntry(entry) {
 
 function renderNote(note) {
   const el = fromTemplate('#note-tpl');
-  $('.body', el).textContent = note.body;
+  $('.body', el).innerHTML = NoteFormat.toHtml(note.body);
+  addFormatting($('.edit-form textarea', el));
   $('.when', el).textContent = formatDate(note.updatedAt);
   const vis = $('.vis', el);
   vis.value = note.visibility;
@@ -290,6 +401,7 @@ function renderNote(note) {
     $('.body', el).hidden = on;
     if (on) {
       editForm.body.value = note.body;
+      editForm.body.dispatchEvent(new Event('input'));
       editForm.body.focus();
     }
   };
@@ -329,7 +441,7 @@ function openShare(entry) {
   form.noteId.replaceChildren(
     new Option('Just the verse', ''),
     ...entry.notes.map((n) => new Option(
-      `${n.visibility === 'private' ? '🔒 ' : ''}${n.body.slice(0, 60)}${n.body.length > 60 ? '…' : ''}`, n.id
+      `${n.visibility === 'private' ? '🔒 ' : ''}${truncate(NoteFormat.toPlainText(n.body), 60)}`, n.id
     ))
   );
   form.message.value = '';
@@ -380,9 +492,9 @@ async function loadInbox() {
     quote.textContent = s.text;
     card.append(from, head, quote);
     if (s.noteBody) {
-      const note = document.createElement('p');
-      note.className = 'shared-note';
-      note.textContent = s.noteBody;
+      const note = document.createElement('div');
+      note.className = 'shared-note rich';
+      note.innerHTML = NoteFormat.toHtml(s.noteBody);
       card.append(note);
     }
     card.append(
@@ -422,9 +534,9 @@ async function loadFeed() {
     head.append(ref, ver);
     const quote = document.createElement('blockquote');
     quote.textContent = n.text;
-    const body = document.createElement('p');
-    body.className = 'shared-note';
-    body.textContent = n.body;
+    const body = document.createElement('div');
+    body.className = 'shared-note rich';
+    body.innerHTML = NoteFormat.toHtml(n.body);
     card.append(from, head, quote, body);
     return card;
   }));

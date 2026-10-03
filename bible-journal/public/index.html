@@ -151,7 +151,7 @@
     <blockquote class="text"></blockquote>
     <ul class="notes"></ul>
     <form class="note-form stack">
-      <textarea name="body" rows="2" placeholder="Write a note about this verse…" maxlength="10000" required></textarea>
+      <textarea name="body" rows="3" placeholder="Write a note about this verse…" maxlength="10000" required></textarea>
       <div class="row">
         <label class="visibility">
           <select name="visibility">
@@ -167,7 +167,7 @@
 
 <template id="note-tpl">
   <li class="note">
-    <p class="body"></p>
+    <div class="body rich"></div>
     <form class="edit-form stack" hidden>
       <textarea name="body" rows="3" maxlength="10000" required></textarea>
       <div class="row">
@@ -188,6 +188,7 @@
   </li>
 </template>
 
+<script src="format.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

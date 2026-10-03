@@ -12,12 +12,14 @@ const os = require('node:os');
 const path = require('node:path');
 const { openDatabase } = require('./src/db');
 const { createApp } = require('./src/app');
+const { createVerseFinder } = require('./src/verse-finder');
 
 const port = Number(process.env.PORT) || 3000;
 const dbFile = process.env.DB_FILE || path.join(__dirname, 'data.sqlite');
 
 const db = openDatabase(dbFile);
-const app = createApp({ db, secureCookies: process.env.SECURE_COOKIES === '1' });
+const finder = createVerseFinder(require('./data/kjv.json'));
+const app = createApp({ db, finder, secureCookies: process.env.SECURE_COOKIES === '1' });
 
 // Addresses other devices on the same Wi-Fi can use to reach this computer.
 function networkAddresses() {

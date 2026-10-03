@@ -77,7 +77,7 @@ function serveStatic(req, res) {
 
 // ---------- app ----------
 
-function createApp({ db, secureCookies = false }) {
+function createApp({ db, finder = null, secureCookies = false }) {
   const routes = [];
   const route = (method, pattern, handler, { auth = true } = {}) => {
     const keys = [];
@@ -195,7 +195,10 @@ function createApp({ db, secureCookies = false }) {
     const raw = typeof body.raw === 'string' ? body.raw : '';
     if (!raw.trim()) throw new HttpError(400, 'Paste a verse first.');
     if (raw.length > MAX_PASTE) throw new HttpError(400, 'That is too much text. Paste one passage at a time.');
-    return tidyVerse(raw);
+    const verse = tidyVerse(raw);
+    // No reference in what was pasted: suggest one from the verse's words.
+    const suggestions = !verse.reference && finder ? finder.find(verse.text) : [];
+    return { ...verse, suggestions };
   }, { auth: false });
 
   // ----- journal -----

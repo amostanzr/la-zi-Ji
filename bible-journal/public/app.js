@@ -91,13 +91,13 @@ async function tidy() {
     const verse = await api('/api/tidy', { method: 'POST', body: { raw } });
     if (seq !== tidySeq) return; // a newer paste is on its way
     verseForm.reference.value = verse.reference || '';
+    showSuggestions(verse.reference ? [] : verse.suggestions || []);
     verseForm.text.value = verse.text;
     verseForm.version.value = verse.version || '';
     $('#version-pill').textContent = verse.version || '';
     $('#version-line').hidden = !verse.version;
-    $('#ref-missing').hidden = Boolean(verse.reference);
+    $('#ref-missing').hidden = Boolean(verse.reference || ghostReference);
     verseForm.hidden = false;
-    if (!verse.reference) verseForm.reference.focus();
   } catch (err) {
     if (seq !== tidySeq) return;
     verseForm.hidden = true;
@@ -111,11 +111,29 @@ $('#raw').addEventListener('input', (e) => {
   tidyTimer = setTimeout(tidy, e.inputType === 'insertFromPaste' ? 0 : 500);
 });
 
+// When the text has no reference, the best guess shows in grey in the
+// Reference box ("ghost") and is used if the person doesn't type their own.
+let ghostReference = '';
+
+function showSuggestions(suggestions) {
+  ghostReference = suggestions.length ? suggestions[0].reference : '';
+  verseForm.reference.placeholder = ghostReference || 'e.g. John 3:16';
+  $('#ref-chips').replaceChildren(...suggestions.map((s, i) => {
+    const chip = button(s.reference, () => {
+      verseForm.reference.value = s.reference;
+      $('#ref-missing').hidden = true;
+    }, i === 0 ? 'chip best' : 'chip');
+    return chip;
+  }));
+  $('#ref-suggest').hidden = !suggestions.length;
+}
+
 verseForm.reference.addEventListener('input', () => { $('#ref-missing').hidden = true; });
 
 function clearVerse() {
   $('#raw').value = '';
   verseForm.reset();
+  showSuggestions([]);
   verseForm.hidden = true;
   showError($('#tidy-error'), null);
 }
@@ -129,10 +147,17 @@ verseForm.addEventListener('submit', async (e) => {
     $('#auth').scrollIntoView({ behavior: 'smooth' });
     return;
   }
+  const body = Object.fromEntries(new FormData(verseForm));
+  body.reference = body.reference.trim() || ghostReference;
+  if (!body.reference) {
+    $('#ref-missing').hidden = false;
+    verseForm.reference.focus();
+    return;
+  }
   const btn = e.submitter;
   btn.disabled = true;
   try {
-    const { entry } = await api('/api/journal', { method: 'POST', body: Object.fromEntries(new FormData(verseForm)) });
+    const { entry } = await api('/api/journal', { method: 'POST', body });
     toast(`Saved ${entry.reference} to your journal.`);
     clearVerse();
     selectTab('journal');

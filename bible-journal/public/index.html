@@ -29,14 +29,18 @@
   <!-- Paste a verse: available signed in or not -->
   <section class="card" aria-labelledby="paste-title">
     <h2 id="paste-title">Add a verse</h2>
-    <label for="raw" class="hint">Copy a verse from any Bible app or website and paste it here. It's tidied up automatically.</label>
-    <textarea id="raw" rows="4" placeholder="Paste a verse here…"></textarea>
+    <label for="raw" class="hint">Paste a verse from any Bible app or website, or type the words you remember. It's tidied up and the reference is filled in for you.</label>
+    <textarea id="raw" rows="4" placeholder="Paste a verse, or type part of one, e.g. for God so loved the world"></textarea>
     <p id="tidy-error" class="error" hidden></p>
     <form id="verse" class="stack verse" hidden>
       <label>Reference
-        <input name="reference" placeholder="e.g. John 3:16" autocomplete="off" required>
+        <input name="reference" placeholder="e.g. John 3:16" autocomplete="off">
       </label>
-      <p id="ref-missing" class="notice" hidden>Couldn't find the reference in what you pasted. Please type it in.</p>
+      <div id="ref-suggest" class="suggest" hidden>
+        <p class="hint">Looks like this verse. Tap to use it, or type your own.</p>
+        <div id="ref-chips" class="chips"></div>
+      </div>
+      <p id="ref-missing" class="notice" hidden>Couldn't tell which verse this is. Please type the reference.</p>
       <label>Verse
         <textarea name="text" rows="4" maxlength="5000" required></textarea>
       </label>

@@ -35,7 +35,11 @@ Requires Node 22.13 or newer. Data is stored in `data.sqlite` (override with `DB
   The app finds the reference (`Jn 3:16` becomes `John 3:16`) and the version (NKJV, KJV, NIV, ESV and more).
   It removes verse numbers, footnote and cross-reference markers (`[a]`, `(A)`), links,
   copyright lines, hidden characters, wrapping quotes and messy spacing.
-  You can check and edit the result before saving. If no reference was found, you type it in.
+  You can check and edit the result before saving.
+- **Reference from the words**: if there's no reference, the app works out which verse it is from the words alone.
+  Typing just `for God so love the world` suggests John 3:16, shown in grey in the Reference box.
+  It's used if you don't type your own, and other likely verses appear as buttons to tap.
+  Longer passages get a range, such as `Psalm 23:1-3`.
 - **Journal**: *Save to my journal* keeps the verse with its reference and version.
 - **Notes**: add notes to any saved verse and set each one to 🔒 Private or 🌐 Public.
   Your friends see your public notes in their *Friends' notes* tab.
@@ -53,6 +57,13 @@ The app can be added to a phone's home screen. It then opens full-screen with it
 
 Android only offers the full install when the app is served over HTTPS, i.e. once it's online.
 On a home Wi‑Fi address (`http://192.168…`) it adds a shortcut instead.
+
+## Bible text
+
+Verse matching searches the King James Version, which is public domain (`data/kjv.json`,
+from [thiagobodruk/bible](https://github.com/thiagobodruk/bible), MIT licence).
+Matching allows for modern wording, so NKJV, NIV or ESV quotes are usually recognised too.
+A verse worded very differently from the KJV may not be. For example, "love is patient" is "charity suffereth long" in the KJV.
 
 ## Deploying
 

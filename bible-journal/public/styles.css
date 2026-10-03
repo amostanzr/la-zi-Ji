@@ -105,6 +105,13 @@ select { max-width: 100%; }
 
 .verse { margin-top: 16px; }
 #raw { margin-top: 8px; }
+.suggest { display: flex; flex-direction: column; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  background: transparent; color: var(--accent); border: 1px solid var(--accent);
+  border-radius: 999px; padding: 4px 12px; font-weight: 500;
+}
+.chip.best { background: var(--accent); color: var(--accent-text); }
 .hint { display: block; color: var(--muted); font-size: .9rem; margin: 0; }
 blockquote {
   margin: 0 0 8px; padding: 8px 14px;

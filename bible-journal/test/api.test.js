@@ -5,10 +5,13 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { openDatabase } = require('../src/db');
 const { createApp } = require('../src/app');
+const { createVerseFinder } = require('../src/verse-finder');
+
+const finder = createVerseFinder(require('../data/kjv.json'));
 
 async function startServer() {
   const db = openDatabase(':memory:');
-  const server = http.createServer(createApp({ db }));
+  const server = http.createServer(createApp({ db, finder }));
   await new Promise((r) => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`;
   return { base, close: () => new Promise((r) => server.close(r)) };
@@ -49,7 +52,12 @@ test('pasted verses are tidied without signing in', async () => {
     const c = client(s.base);
     const r = await c('POST', '/api/tidy', { raw: '16 For God so loved the world [a]... - John 3:16 (NKJV)' });
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { reference: 'John 3:16', version: 'NKJV', text: 'For God so loved the world...' });
+    assert.deepEqual(r.body, { reference: 'John 3:16', version: 'NKJV', text: 'For God so loved the world...', suggestions: [] });
+
+    // No reference in the text: suggest one.
+    const guess = await c('POST', '/api/tidy', { raw: 'for God so love the world' });
+    assert.equal(guess.body.reference, null);
+    assert.equal(guess.body.suggestions[0].reference, 'John 3:16');
     assert.equal((await c('POST', '/api/tidy', { raw: '   ' })).status, 400);
     assert.equal((await c('POST', '/api/tidy', { raw: 'x'.repeat(20001) })).status, 400);
   } finally {

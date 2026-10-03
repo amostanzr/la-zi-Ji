@@ -34,6 +34,18 @@ function toast(message) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2500);
 }
 
+// In-page "Are you sure?" box. Resolves true when the person confirms.
+function ask(message, confirmLabel) {
+  const dialog = $('#confirm-dialog');
+  $('#confirm-message').textContent = message;
+  $('#confirm-yes').textContent = confirmLabel;
+  dialog.returnValue = '';
+  dialog.showModal();
+  return new Promise((resolve) => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'yes'), { once: true });
+  });
+}
+
 function fromTemplate(id) {
   return $(id).content.firstElementChild.cloneNode(true);
 }
@@ -215,7 +227,7 @@ function renderEntry(entry) {
 
   $('.share', el).addEventListener('click', () => openShare(entry));
   $('.delete', el).addEventListener('click', async () => {
-    if (!confirm(`Remove ${entry.reference} and its notes from your journal?`)) return;
+    if (!(await ask(`Remove ${entry.reference} and its notes from your journal?`, 'Remove'))) return;
     await api(`/api/journal/${entry.id}`, { method: 'DELETE' });
     loadJournal();
   });
@@ -247,14 +259,28 @@ function renderNote(note) {
       vis.value = note.visibility;
     }
   });
-  $('.edit', el).addEventListener('click', async () => {
-    const body = prompt('Edit note', note.body);
-    if (body === null || !body.trim()) return;
-    await api(`/api/notes/${note.id}`, { method: 'PATCH', body: { body } }).catch((err) => toast(err.message));
-    loadJournal();
+  const editForm = $('.edit-form', el);
+  const setEditing = (on) => {
+    editForm.hidden = !on;
+    $('.body', el).hidden = on;
+    if (on) {
+      editForm.body.value = note.body;
+      editForm.body.focus();
+    }
+  };
+  $('.edit', el).addEventListener('click', () => setEditing(true));
+  $('.cancel', editForm).addEventListener('click', () => setEditing(false));
+  editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api(`/api/notes/${note.id}`, { method: 'PATCH', body: { body: editForm.body.value } });
+      loadJournal();
+    } catch (err) {
+      toast(err.message);
+    }
   });
   $('.delete', el).addEventListener('click', async () => {
-    if (!confirm('Delete this note?')) return;
+    if (!(await ask('Delete this note?', 'Delete'))) return;
     await api(`/api/notes/${note.id}`, { method: 'DELETE' });
     loadJournal();
   });
@@ -400,7 +426,7 @@ async function loadFriends() {
   $('#friends').replaceChildren(...friends.map((p) => li(
     personLabel(p),
     button('Remove', act(async () => {
-      if (confirm(`Remove @${p.username} from your friends?`)) await api(`/api/friends/${p.id}`, { method: 'DELETE' });
+      if (await ask(`Remove @${p.username} from your friends?`, 'Remove')) await api(`/api/friends/${p.id}`, { method: 'DELETE' });
     }), 'link danger')
   )));
   $('#friends-empty').hidden = friends.length > 0;

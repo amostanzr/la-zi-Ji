@@ -124,6 +124,16 @@
   </form>
 </dialog>
 
+<dialog id="confirm-dialog">
+  <form method="dialog" class="stack">
+    <p id="confirm-message"></p>
+    <div class="row">
+      <button value="yes" id="confirm-yes" class="danger-fill">Remove</button>
+      <button value="no" class="secondary">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
 <div id="toast" class="toast" role="status" hidden></div>
 
 <template id="entry-tpl">
@@ -154,6 +164,13 @@
 <template id="note-tpl">
   <li class="note">
     <p class="body"></p>
+    <form class="edit-form stack" hidden>
+      <textarea name="body" rows="3" maxlength="10000" required></textarea>
+      <div class="row">
+        <button type="submit">Save</button>
+        <button type="button" class="link cancel">Cancel</button>
+      </div>
+    </form>
     <div class="row small">
       <select class="vis" aria-label="Visibility">
         <option value="private">🔒 Private</option>

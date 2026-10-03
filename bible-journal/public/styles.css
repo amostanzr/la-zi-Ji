@@ -15,7 +15,7 @@
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #1b1917;
     --surface: #262320;
     --text: #ece6df;
@@ -28,6 +28,19 @@
     --bar: #3b2616;
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #1b1917;
+  --surface: #262320;
+  --text: #ece6df;
+  --muted: #a39a91;
+  --border: #3a3531;
+  --accent: #d39a6a;
+  --accent-text: #1b1917;
+  --danger: #ff8a80;
+  --notice-bg: #3a3020;
+  --bar: #3b2616;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -75,6 +88,7 @@ button.link {
   background: none; border: none; color: var(--accent); padding: 4px; font-weight: 500;
 }
 button.danger, .link.danger { color: var(--danger); }
+button.danger-fill { background: var(--danger); border-color: var(--danger); color: var(--surface); }
 button:disabled { opacity: .6; cursor: progress; }
 
 .lookup { display: flex; gap: 8px; flex-wrap: wrap; }

@@ -1,0 +1,14 @@
+{
+  "name": "bible-journal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Look up Bible verses, keep a journal with public or private notes, and share with friends.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test"
+  }
+}

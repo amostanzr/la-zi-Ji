@@ -4,40 +4,14 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { openDatabase } = require('../src/db');
-const { createBibleService, htmlToText } = require('../src/bible');
 const { createApp } = require('../src/app');
 
-// Fake upstream Bible APIs so tests never hit the network.
-function fakeFetch(calls) {
-  return async (url, opts = {}) => {
-    calls.push({ url, opts });
-    const json = (status, body) => ({ status, ok: status < 400, json: async () => body });
-    if (url.startsWith('https://bible-api.com/')) {
-      const u = new URL(url);
-      const ref = decodeURIComponent(u.pathname.slice(1));
-      if (ref.startsWith('Nowhere')) return json(404, { error: 'not found' });
-      return json(200, {
-        reference: ref,
-        text: `[${u.searchParams.get('translation')}] For God so loved the world\n`,
-      });
-    }
-    if (url.startsWith('https://api.scripture.api.bible/')) {
-      return json(200, {
-        data: { passages: [{ reference: 'John 3:16', content: '<p><span class="v">16</span>For God so loved the world</p>' }] },
-      });
-    }
-    throw new Error(`unexpected fetch ${url}`);
-  };
-}
-
-async function startServer(env = {}) {
-  const calls = [];
+async function startServer() {
   const db = openDatabase(':memory:');
-  const bible = createBibleService({ fetchImpl: fakeFetch(calls), env });
-  const server = http.createServer(createApp({ db, bible }));
+  const server = http.createServer(createApp({ db }));
   await new Promise((r) => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`;
-  return { base, calls, close: () => new Promise((r) => server.close(r)) };
+  return { base, close: () => new Promise((r) => server.close(r)) };
 }
 
 function client(base) {
@@ -69,49 +43,15 @@ async function befriend(a, b, bName) {
   assert.equal(r.status, 200);
 }
 
-test('NKJV is the default and falls back to KJV with a notice when not licensed', async () => {
+test('pasted verses are tidied without signing in', async () => {
   const s = await startServer();
   try {
     const c = client(s.base);
-    const versions = await c('GET', '/api/versions');
-    assert.equal(versions.body.defaultVersion, 'NKJV');
-    assert.ok(versions.body.versions.length >= 5);
-    assert.equal(versions.body.versions.find((v) => v.id === 'NKJV').available, false);
-
-    const r = await c('GET', '/api/verse?ref=John%203:16');
+    const r = await c('POST', '/api/tidy', { raw: '16 For God so loved the world [a]... - John 3:16 (NKJV)' });
     assert.equal(r.status, 200);
-    assert.equal(r.body.version, 'KJV');
-    assert.match(r.body.notice, /NKJV/);
-    assert.equal(r.body.text, '[kjv] For God so loved the world');
-  } finally {
-    await s.close();
-  }
-});
-
-test('NKJV is fetched from API.Bible when a key and bible id are configured', async () => {
-  const s = await startServer({ API_BIBLE_KEY: 'k', BIBLE_ID_NKJV: 'nkjv-id' });
-  try {
-    const r = await client(s.base)('GET', '/api/verse?ref=John%203:16&version=NKJV');
-    assert.equal(r.status, 200);
-    assert.equal(r.body.version, 'NKJV');
-    assert.equal(r.body.notice, undefined);
-    assert.equal(r.body.text, 'For God so loved the world');
-    const call = s.calls.at(-1);
-    assert.match(call.url, /bibles\/nkjv-id\/search/);
-    assert.equal(call.opts.headers['api-key'], 'k');
-  } finally {
-    await s.close();
-  }
-});
-
-test('version dropdown choices are honoured; bad input is rejected', async () => {
-  const s = await startServer();
-  try {
-    const c = client(s.base);
-    assert.equal((await c('GET', '/api/verse?ref=John%203:16&version=WEB')).body.version, 'WEB');
-    assert.equal((await c('GET', '/api/verse?ref=John%203:16&version=XYZ')).status, 400);
-    assert.equal((await c('GET', '/api/verse?ref=%3Cscript%3E')).status, 400);
-    assert.equal((await c('GET', '/api/verse?ref=Nowhere%201:1&version=KJV')).status, 404);
+    assert.deepEqual(r.body, { reference: 'John 3:16', version: 'NKJV', text: 'For God so loved the world...' });
+    assert.equal((await c('POST', '/api/tidy', { raw: '   ' })).status, 400);
+    assert.equal((await c('POST', '/api/tidy', { raw: 'x'.repeat(20001) })).status, 400);
   } finally {
     await s.close();
   }
@@ -126,8 +66,18 @@ test('journal: save verse, add notes, toggle visibility, isolation between users
     const alice = await signUp(s.base, 'alice');
     const bob = await signUp(s.base, 'bob');
 
-    const saved = await alice('POST', '/api/journal', { reference: 'John 3:16', version: 'WEB' });
+    assert.equal((await alice('POST', '/api/journal', { reference: 'not a verse', text: 'x' })).status, 400);
+    assert.equal((await alice('POST', '/api/journal', { reference: 'John 3:16', text: '  ' })).status, 400);
+    assert.equal((await alice('POST', '/api/journal', { reference: 'John 3:16', text: 'x', version: 'ZZZ' })).status, 400);
+
+    const saved = await alice('POST', '/api/journal', { reference: 'jn 3:16', version: 'nkjv', text: 'For God so loved the world' });
     assert.equal(saved.status, 201);
+    assert.equal(saved.body.entry.reference, 'John 3:16');
+    assert.equal(saved.body.entry.version, 'NKJV');
+    assert.equal(saved.body.entry.text, 'For God so loved the world');
+    const noVersion = await alice('POST', '/api/journal', { reference: 'Psalm 23:1', text: 'The Lord is my shepherd' });
+    assert.equal(noVersion.body.entry.version, '');
+    await alice('DELETE', `/api/journal/${noVersion.body.entry.id}`);
     const entryId = saved.body.entry.id;
 
     const note = await alice('POST', `/api/journal/${entryId}/notes`, { body: 'Loved', visibility: 'private' });
@@ -160,7 +110,7 @@ test('friends: request, accept, feed shows only friends\' public notes', async (
     const bob = await signUp(s.base, 'bob');
     const carol = await signUp(s.base, 'carol');
 
-    const { body: { entry } } = await alice('POST', '/api/journal', { reference: 'Psalm 23:1', version: 'KJV' });
+    const { body: { entry } } = await alice('POST', '/api/journal', { reference: 'Psalm 23:1', version: 'KJV', text: 'The LORD is my shepherd' });
     await alice('POST', `/api/journal/${entry.id}/notes`, { body: 'public thought', visibility: 'public' });
     await alice('POST', `/api/journal/${entry.id}/notes`, { body: 'private thought', visibility: 'private' });
 
@@ -192,7 +142,7 @@ test('sharing: only with friends, includes notes, recipient can save to journal'
     const carol = await signUp(s.base, 'carol');
     await befriend(alice, bob, 'bob');
 
-    const { body: { entry } } = await alice('POST', '/api/journal', { reference: 'John 3:16', version: 'KJV' });
+    const { body: { entry } } = await alice('POST', '/api/journal', { reference: 'John 3:16', version: 'KJV', text: 'For God so loved the world' });
     const { body: { note } } = await alice('POST', `/api/journal/${entry.id}/notes`, { body: 'for you', visibility: 'private' });
 
     assert.equal((await alice('POST', '/api/shares', { username: 'carol', entryId: entry.id })).status, 403);
@@ -250,8 +200,4 @@ test('static UI is served', async () => {
   } finally {
     await s.close();
   }
-});
-
-test('htmlToText strips API.Bible markup and verse numbers', () => {
-  assert.equal(htmlToText('<p><span class="v">1</span>In the beginning&nbsp;God</p>'), 'In the beginning God');
 });

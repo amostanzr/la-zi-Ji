@@ -3,12 +3,14 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { hashPassword, verifyPassword, createSession, userForToken, destroySession } = require('./auth');
-const { BibleError } = require('./bible');
+const { tidyVerse, parseReference, VERSION_IDS } = require('./tidy');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const COOKIE = 'bj_session';
 const MAX_BODY = 64 * 1024;
 const MAX_NOTE = 10000;
+const MAX_VERSE = 5000;
+const MAX_PASTE = 20000;
 const STATIC_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -74,7 +76,7 @@ function serveStatic(req, res) {
 
 // ---------- app ----------
 
-function createApp({ db, bible, secureCookies = false }) {
+function createApp({ db, secureCookies = false }) {
   const routes = [];
   const route = (method, pattern, handler, { auth = true } = {}) => {
     const keys = [];
@@ -186,14 +188,14 @@ function createApp({ db, bible, secureCookies = false }) {
 
   route('GET', '/api/me', async ({ user }) => ({ user }));
 
-  // ----- bible -----
+  // ----- verses -----
 
-  route('GET', '/api/versions', async () => ({
-    defaultVersion: bible.defaultVersion,
-    versions: bible.listVersions(),
-  }), { auth: false });
-
-  route('GET', '/api/verse', async ({ query }) => bible.lookup(query.get('ref'), query.get('version') || bible.defaultVersion), { auth: false });
+  route('POST', '/api/tidy', async ({ body }) => {
+    const raw = typeof body.raw === 'string' ? body.raw : '';
+    if (!raw.trim()) throw new HttpError(400, 'Paste a verse first.');
+    if (raw.length > MAX_PASTE) throw new HttpError(400, 'That is too much text. Paste one passage at a time.');
+    return tidyVerse(raw);
+  }, { auth: false });
 
   // ----- journal -----
 
@@ -213,11 +215,14 @@ function createApp({ db, bible, secureCookies = false }) {
   });
 
   route('POST', '/api/journal', async ({ user, body, res }) => {
-    // Re-fetch the verse server-side so the stored text is authentic.
-    const verse = await bible.lookup(body.reference, body.version || bible.defaultVersion);
+    const reference = parseReference(body.reference);
+    if (!reference) throw new HttpError(400, 'Enter the reference, like "John 3:16" or "Psalm 23:1-3".');
+    const text = requireText(body.text, 'Verse text', MAX_VERSE);
+    const version = String(body.version || '').trim().toUpperCase();
+    if (version && !VERSION_IDS.has(version)) throw new HttpError(400, `Unknown version "${body.version}".`);
     const { lastInsertRowid } = db
       .prepare('INSERT INTO journal_entries (user_id, reference, version, text) VALUES (?, ?, ?, ?)')
-      .run(user.id, verse.reference, verse.version, verse.text);
+      .run(user.id, reference, version, text);
     sendJson(res, 201, { entry: { ...entryJson(q.entry.get(Number(lastInsertRowid))), notes: [] } });
   });
 
@@ -447,7 +452,7 @@ function createApp({ db, bible, secureCookies = false }) {
       if (result !== undefined && !res.headersSent) sendJson(res, 200, result);
     } catch (err) {
       if (res.headersSent) return res.end();
-      if (err instanceof HttpError || err instanceof BibleError) {
+      if (err instanceof HttpError) {
         return sendJson(res, err.status, { error: err.message });
       }
       console.error(err);

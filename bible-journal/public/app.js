@@ -1,7 +1,7 @@
 'use strict';
 
 const $ = (sel, root = document) => root.querySelector(sel);
-const state = { user: null, verse: null, journal: [], friends: [] };
+const state = { user: null, journal: [], friends: [] };
 
 // ---------- helpers ----------
 
@@ -64,60 +64,71 @@ function formatDate(sqlDate) {
   return new Date(sqlDate.replace(' ', 'T') + 'Z').toLocaleDateString();
 }
 
-// ---------- verse lookup ----------
+// ---------- paste & tidy ----------
 
-async function loadVersions() {
-  const { versions, defaultVersion } = await api('/api/versions');
-  const select = $('#version');
-  for (const v of versions) {
-    const opt = new Option(`${v.id} — ${v.name}${v.available ? '' : ' (not licensed here)'}`, v.id);
-    select.add(opt);
+const verseForm = $('#verse');
+let tidyTimer;
+let tidySeq = 0;
+
+async function tidy() {
+  const raw = $('#raw').value;
+  showError($('#tidy-error'), null);
+  if (!raw.trim()) { verseForm.hidden = true; return; }
+  const seq = ++tidySeq;
+  try {
+    const verse = await api('/api/tidy', { method: 'POST', body: { raw } });
+    if (seq !== tidySeq) return; // a newer paste is on its way
+    verseForm.reference.value = verse.reference || '';
+    verseForm.text.value = verse.text;
+    verseForm.version.value = verse.version || '';
+    $('#version-pill').textContent = verse.version || '';
+    $('#version-line').hidden = !verse.version;
+    $('#ref-missing').hidden = Boolean(verse.reference);
+    verseForm.hidden = false;
+    if (!verse.reference) verseForm.reference.focus();
+  } catch (err) {
+    if (seq !== tidySeq) return;
+    verseForm.hidden = true;
+    showError($('#tidy-error'), err);
   }
-  select.value = defaultVersion;
 }
 
-$('#lookup-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = e.submitter;
-  btn.disabled = true;
-  showError($('#lookup-error'), null);
-  try {
-    const params = new URLSearchParams({ ref: $('#ref').value, version: $('#version').value });
-    const verse = await api(`/api/verse?${params}`);
-    state.verse = verse;
-    $('#verse-text').textContent = verse.text;
-    $('#verse-ref').textContent = verse.reference;
-    $('#verse-version').textContent = verse.version;
-    $('#verse-notice').textContent = verse.notice || '';
-    $('#verse-notice').hidden = !verse.notice;
-    $('#verse').hidden = false;
-  } catch (err) {
-    $('#verse').hidden = true;
-    showError($('#lookup-error'), err);
-  } finally {
-    btn.disabled = false;
-  }
+$('#raw').addEventListener('input', (e) => {
+  clearTimeout(tidyTimer);
+  // Tidy straight away on paste; wait for a pause while typing.
+  tidyTimer = setTimeout(tidy, e.inputType === 'insertFromPaste' ? 0 : 500);
 });
 
-$('#save-verse').addEventListener('click', async (e) => {
+verseForm.reference.addEventListener('input', () => { $('#ref-missing').hidden = true; });
+
+function clearVerse() {
+  $('#raw').value = '';
+  verseForm.reset();
+  verseForm.hidden = true;
+  showError($('#tidy-error'), null);
+}
+
+$('#clear').addEventListener('click', clearVerse);
+
+verseForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
   if (!state.user) {
     toast('Log in or create an account to save verses.');
     $('#auth').scrollIntoView({ behavior: 'smooth' });
     return;
   }
-  e.target.disabled = true;
+  const btn = e.submitter;
+  btn.disabled = true;
   try {
-    await api('/api/journal', {
-      method: 'POST',
-      body: { reference: state.verse.reference, version: state.verse.version },
-    });
-    toast(`Saved ${state.verse.reference} to your journal.`);
+    const { entry } = await api('/api/journal', { method: 'POST', body: Object.fromEntries(new FormData(verseForm)) });
+    toast(`Saved ${entry.reference} to your journal.`);
+    clearVerse();
     selectTab('journal');
     await loadJournal();
   } catch (err) {
     toast(err.message);
   } finally {
-    e.target.disabled = false;
+    btn.disabled = false;
   }
 });
 
@@ -198,6 +209,7 @@ function renderEntry(entry) {
   const el = fromTemplate('#entry-tpl');
   $('.ref', el).textContent = entry.reference;
   $('.version', el).textContent = entry.version;
+  $('.version', el).hidden = !entry.version;
   $('.text', el).textContent = entry.text;
   $('.notes', el).replaceChildren(...entry.notes.map(renderNote));
 
@@ -311,6 +323,7 @@ async function loadInbox() {
     const ver = document.createElement('span');
     ver.className = 'pill';
     ver.textContent = s.version;
+    ver.hidden = !s.version;
     head.append(ref, ver);
     const quote = document.createElement('blockquote');
     quote.textContent = s.text;
@@ -354,6 +367,7 @@ async function loadFeed() {
     const ver = document.createElement('span');
     ver.className = 'pill';
     ver.textContent = n.version;
+    ver.hidden = !n.version;
     head.append(ref, ver);
     const quote = document.createElement('blockquote');
     quote.textContent = n.text;
@@ -420,7 +434,6 @@ $('#friend-search').addEventListener('submit', async (e) => {
 // ---------- boot ----------
 
 (async function boot() {
-  await loadVersions().catch((err) => showError($('#lookup-error'), err));
   try {
     const { user } = await api('/api/me');
     await signedIn(user);

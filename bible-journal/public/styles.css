@@ -82,17 +82,18 @@ select { max-width: 100%; }
 .spacer { flex: 1; }
 
 .verse { margin-top: 16px; }
+#raw { margin-top: 8px; }
+.hint { display: block; color: var(--muted); font-size: .9rem; margin: 0; }
 blockquote {
   margin: 0 0 8px; padding: 8px 14px;
   border-left: 3px solid var(--accent);
   font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem;
 }
-.verse-ref { margin: 0 0 12px; color: var(--muted); }
 .pill {
   display: inline-block; font-size: .75rem; padding: 1px 8px;
   border: 1px solid var(--border); border-radius: 999px; color: var(--muted);
 }
-.notice { background: var(--notice-bg); padding: 8px 12px; border-radius: 8px; font-size: .9rem; }
+.notice { background: var(--notice-bg); padding: 8px 12px; border-radius: 8px; font-size: .9rem; margin: 0; }
 .error { color: var(--danger); margin: 8px 0 0; }
 .muted { color: var(--muted); }
 

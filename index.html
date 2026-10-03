@@ -3422,13 +3422,39 @@ document.addEventListener('touchmove', function(e){
   }
 
   let layoutResizeTimer = null;
+  // While the on-screen keyboard is up (typing a leaderboard name) the viewport shrinks; laying the
+  // table out for that would shrink the plate and cull the props, and iPhones don't always send a
+  // resize when the keyboard goes away again. So ignore size changes while typing, and settle the
+  // layout ourselves once the field loses focus.
+  function isTyping(){
+    const a = document.activeElement;
+    return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+  }
   function onViewportChange(){
+    if(isTyping()) return;
     syncFullHeight();
     clearTimeout(layoutResizeTimer);
     layoutResizeTimer = setTimeout(layoutTableScene, 120);
   }
+  let settleTimers = [];
+  function settleAfterKeyboard(){
+    settleTimers.forEach(clearTimeout);
+    // the keyboard animates away over a few hundred ms; re-check as it goes
+    settleTimers = [120, 450, 900].map(ms => setTimeout(() => {
+      if(isTyping()) return;
+      window.scrollTo(0, 0);
+      syncFullHeight();
+      layoutTableScene();
+      fitEndScreen();
+    }, ms));
+  }
   window.addEventListener('resize', onViewportChange);
   window.addEventListener('orientationchange', onViewportChange);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', onViewportChange);
+  document.addEventListener('focusout', e => {
+    const t = e.target;
+    if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) settleAfterKeyboard();
+  });
 
   // ============ boot ============
   loadBest();

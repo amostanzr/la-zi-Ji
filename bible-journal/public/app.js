@@ -246,17 +246,17 @@ async function loadJournal() {
 
 const truncate = (text, max) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
-// Formatting shows straight away in the note box (a rich-text editor). The
-// note is still saved as plain text with simple markers (see format.js),
-// kept in the form's hidden textarea.
+// Formatting shows straight away in the note box (a rich-text editor):
+// select text to get the formatting menu. The note is still saved as plain
+// text with simple markers (see format.js), kept in the form's hidden textarea.
 const FORMAT_BUTTONS = [
   { label: 'B', title: 'Bold', tag: 'b', command: 'bold' },
   { label: 'I', title: 'Italic', tag: 'i', command: 'italic' },
   { label: 'U', title: 'Underline', tag: 'u', command: 'underline' },
   { label: 'H', title: 'Highlight', tag: 'mark', command: 'highlight' },
-  { label: '• List', title: 'Bullet list', command: 'insertUnorderedList' },
-  { label: '1. List', title: 'Numbered list', command: 'insertOrderedList' },
-  { label: '❝ Quote', title: 'Quote', command: 'quote' },
+  { label: '•', title: 'Bullet list', command: 'insertUnorderedList' },
+  { label: '1.', title: 'Numbered list', command: 'insertOrderedList' },
+  { label: '❝', title: 'Quote', command: 'quote' },
 ];
 const HIGHLIGHT_COLOR = 'rgba(255, 210, 60, 0.45)';
 
@@ -308,7 +308,97 @@ function isActive(editor, command) {
   try { return document.queryCommandState(command); } catch { return false; }
 }
 
-// Turns a note form's textarea into a rich-text editor with a toolbar.
+// One small menu, shown under the selected text in whichever note box has it.
+const formatMenu = (() => {
+  const menu = document.createElement('div');
+  menu.className = 'format-menu';
+  menu.setAttribute('role', 'toolbar');
+  menu.setAttribute('aria-label', 'Formatting');
+  menu.hidden = true;
+  let editor = null;
+  const buttons = FORMAT_BUTTONS.map((f) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.title = f.title;
+    b.setAttribute('aria-label', f.title);
+    b.setAttribute('aria-pressed', 'false');
+    const t = document.createElement(f.tag || 'span');
+    t.textContent = f.label;
+    b.append(t);
+    // Keep the selection (and the phone keyboard) when tapping.
+    b.addEventListener('pointerdown', (e) => e.preventDefault());
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', () => {
+      if (!editor) return;
+      runCommand(editor, f.command);
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      update();
+    });
+    menu.append(b);
+    return { b, f };
+  });
+  document.body.append(menu);
+
+  function hide() {
+    menu.hidden = true;
+    editor = null;
+  }
+
+  function update() {
+    const sel = document.getSelection();
+    const node = sel && sel.rangeCount ? sel.anchorNode : null;
+    const el = node && (node.nodeType === 1 ? node : node.parentElement);
+    const target = el && el.closest('.note-editor');
+    if (!target || sel.isCollapsed) return hide();
+    editor = target;
+    for (const { b, f } of buttons) b.setAttribute('aria-pressed', String(isActive(editor, f.command)));
+
+    // Below the selection: phones put their own copy/paste menu above it.
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    if (!rect.width && !rect.height) return hide();
+    menu.hidden = false;
+    const width = menu.offsetWidth;
+    const left = Math.min(Math.max(rect.left + rect.width / 2 - width / 2, 8), document.documentElement.clientWidth - width - 8);
+    menu.style.left = `${left + window.scrollX}px`;
+    menu.style.top = `${rect.bottom + window.scrollY + 10}px`;
+  }
+
+  document.addEventListener('selectionchange', update);
+  window.addEventListener('resize', update);
+  window.addEventListener('scroll', () => { if (!menu.hidden) update(); }, { passive: true });
+  return { update, hide };
+})();
+
+// Typing "- ", "1. " or "> " at the start of a line starts a list or quote.
+const LINE_SHORTCUTS = [
+  { re: /^[-*•] $/, command: 'insertUnorderedList' },
+  { re: /^1[.)] $/, command: 'insertOrderedList' },
+  { re: /^> $/, command: 'quote' },
+];
+
+function applyLineShortcut(editor) {
+  const sel = document.getSelection();
+  const node = sel.anchorNode;
+  if (!sel.isCollapsed || !node || node.nodeType !== 3 || node.previousSibling || !editor.contains(node)) return;
+  const parent = node.parentNode;
+  if (parent !== editor && !['DIV', 'P'].includes(parent.nodeName)) return;
+  for (let el = parent; el && el !== editor; el = el.parentNode) {
+    if (el.nodeName === 'LI' || el.nodeName === 'BLOCKQUOTE') return; // already a list or quote
+  }
+  const typed = node.nodeValue.slice(0, sel.anchorOffset).replace(/\u00a0/g, ' ');
+  const shortcut = LINE_SHORTCUTS.find((x) => x.re.test(typed));
+  if (!shortcut) return;
+  const range = document.createRange();
+  range.setStart(node, 0);
+  range.setEnd(node, sel.anchorOffset);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  document.execCommand('delete');
+  runCommand(editor, shortcut.command);
+}
+
+// Turns a note form's textarea into a rich-text editor. Selecting text shows
+// the formatting menu.
 function addFormatting(ta) {
   const editor = document.createElement('div');
   editor.className = 'note-editor rich';
@@ -319,45 +409,12 @@ function addFormatting(ta) {
   editor.dataset.placeholder = ta.placeholder || '';
   ta.hidden = true;
   ta.removeAttribute('required');
-
-  const bar = document.createElement('div');
-  bar.className = 'format-bar';
-  bar.setAttribute('role', 'toolbar');
-  bar.setAttribute('aria-label', 'Formatting');
-  const buttons = FORMAT_BUTTONS.map((f) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.title = f.title;
-    b.setAttribute('aria-label', f.title);
-    b.setAttribute('aria-pressed', 'false');
-    if (f.tag) {
-      const t = document.createElement(f.tag);
-      t.textContent = f.label;
-      b.append(t);
-    } else {
-      b.textContent = f.label;
-    }
-    // Keep the keyboard up and the selection in place when tapping.
-    b.addEventListener('pointerdown', (e) => e.preventDefault());
-    b.addEventListener('mousedown', (e) => e.preventDefault());
-    b.addEventListener('click', () => {
-      if (!selectionIn(editor)) editor.focus();
-      runCommand(editor, f.command);
-      sync();
-      refreshButtons();
-    });
-    return { b, f };
-  });
-  bar.append(...buttons.map((x) => x.b));
-  ta.before(bar, editor);
+  ta.before(editor);
 
   const empty = () => !editor.textContent.trim() && !editor.querySelector('li');
   function sync() {
     ta.value = empty() ? '' : NoteFormat.fromElement(editor);
     editor.classList.toggle('is-empty', empty());
-  }
-  function refreshButtons() {
-    for (const { b, f } of buttons) b.setAttribute('aria-pressed', String(isActive(editor, f.command)));
   }
   function set(text) {
     editor.innerHTML = text ? NoteFormat.toHtml(text) : '';
@@ -367,8 +424,42 @@ function addFormatting(ta) {
   editor.addEventListener('focus', () => {
     try { document.execCommand('defaultParagraphSeparator', false, 'div'); } catch { /* not supported */ }
   });
-  editor.addEventListener('input', sync);
-  document.addEventListener('selectionchange', () => { if (selectionIn(editor)) refreshButtons(); });
+  editor.addEventListener('input', (e) => {
+    sync();
+    // Browsers ignore editing commands run during the input event itself.
+    if (e.inputType === 'insertText' && e.data === ' ') {
+      setTimeout(() => {
+        applyLineShortcut(editor);
+        sync();
+      });
+    }
+  });
+
+  // Enter at the end of a quote starts a normal line after it.
+  editor.addEventListener('beforeinput', (e) => {
+    if (e.inputType !== 'insertParagraph') return;
+    const sel = document.getSelection();
+    if (!sel.isCollapsed) return;
+    let quote = null;
+    for (let el = sel.anchorNode; el && el !== editor; el = el.parentNode) {
+      if (el.nodeName === 'BLOCKQUOTE') { quote = el; break; }
+    }
+    if (!quote) return;
+    const rest = document.createRange();
+    rest.setStart(sel.anchorNode, sel.anchorOffset);
+    rest.setEnd(quote, quote.childNodes.length);
+    if (rest.toString().trim()) return; // in the middle of the quote
+    e.preventDefault();
+    const line = document.createElement('div');
+    line.append(document.createElement('br'));
+    quote.after(line);
+    const caret = document.createRange();
+    caret.setStart(line, 0);
+    caret.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(caret);
+    sync();
+  });
 
   // Paste and drop as plain text, so formatting from other sites can't sneak in.
   editor.addEventListener('paste', (e) => {

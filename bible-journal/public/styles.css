@@ -176,17 +176,19 @@ dialog h3 { margin-top: 0; }
   font-family: inherit; font-size: inherit; color: var(--muted);
   border-left: 3px solid var(--border); padding: 2px 0 2px 10px;
 }
-.rich mark, .format-bar mark { background: var(--mark); color: var(--mark-text); padding: 0 2px; border-radius: 3px; }
+.rich mark { background: var(--mark); color: var(--mark-text); padding: 0 2px; border-radius: 3px; }
 
-.format-bar { display: flex; flex-wrap: wrap; gap: 4px; }
-.format-bar button {
-  flex: 0 0 auto; min-width: 40px; min-height: 36px; padding: 4px 10px;
-  background: var(--surface); color: var(--text); border-color: var(--border); font-weight: 500;
+.format-menu {
+  position: absolute; z-index: 20; display: flex; gap: 2px; padding: 4px;
+  background: var(--text); border-radius: 10px; box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
 }
-.format-bar button:active { background: var(--border); }
-.format-bar b { font-weight: 800; }
-.format-bar button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-.format-bar button[aria-pressed="true"] mark { background: transparent; color: inherit; }
+.format-menu button {
+  min-width: 40px; min-height: 40px; padding: 4px 8px; border: none; border-radius: 7px;
+  background: transparent; color: var(--bg); font-weight: 500; font-size: 1rem;
+}
+.format-menu button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.format-menu b { font-weight: 800; }
+.format-menu mark { background: var(--mark); color: var(--mark-text); padding: 0 3px; border-radius: 3px; }
 
 .note-editor {
   min-height: 4.8em; max-height: 60vh; overflow-y: auto;

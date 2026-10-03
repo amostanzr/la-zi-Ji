@@ -42,8 +42,9 @@ Requires Node 22.13 or newer. Data is stored in `data.sqlite` (override with `DB
   Longer passages get a range, such as `Psalm 23:1-3`.
 - **Journal**: *Save to my journal* keeps the verse with its reference and version.
 - **Notes**: add notes to any saved verse and set each one to 🔒 Private or 🌐 Public.
-  Notes are formatted as you write, with a toolbar for **bold**, *italic*, underline, highlight,
-  bullet and numbered lists, and quotes (Ctrl/Cmd+B, I and U work too).
+  Notes are formatted as you write. Select words and a small menu appears with **bold**, *italic*,
+  underline, highlight, bullet and numbered lists, and quotes (Ctrl/Cmd+B, I and U work too).
+  Typing `- `, `1. ` or `> ` at the start of a line starts a list or quote.
   Behind the scenes a note is stored as plain text with simple markers (`**bold**`, `*italic*`,
   `__underline__`, `==highlight==`, `- item`, `1. item`, `> quote`), and pasted text is kept plain.
   Your friends see your public notes in their *Friends' notes* tab.

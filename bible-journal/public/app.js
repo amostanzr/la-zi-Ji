@@ -242,77 +242,94 @@ async function loadJournal() {
   $('#journal-empty').hidden = entries.length > 0;
 }
 
-// ---------- note formatting toolbar ----------
+// ---------- note editor ----------
 
 const truncate = (text, max) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
+// Formatting shows straight away in the note box (a rich-text editor). The
+// note is still saved as plain text with simple markers (see format.js),
+// kept in the form's hidden textarea.
 const FORMAT_BUTTONS = [
-  { label: 'B', title: 'Bold', tag: 'b', wrap: '**' },
-  { label: 'I', title: 'Italic', tag: 'i', wrap: '*' },
-  { label: 'U', title: 'Underline', tag: 'u', wrap: '__' },
-  { label: 'H', title: 'Highlight', tag: 'mark', wrap: '==' },
-  { label: '• List', title: 'Bullet list', line: 'bullet' },
-  { label: '1. List', title: 'Numbered list', line: 'number' },
-  { label: '❝ Quote', title: 'Quote', line: 'quote' },
+  { label: 'B', title: 'Bold', tag: 'b', command: 'bold' },
+  { label: 'I', title: 'Italic', tag: 'i', command: 'italic' },
+  { label: 'U', title: 'Underline', tag: 'u', command: 'underline' },
+  { label: 'H', title: 'Highlight', tag: 'mark', command: 'highlight' },
+  { label: '• List', title: 'Bullet list', command: 'insertUnorderedList' },
+  { label: '1. List', title: 'Numbered list', command: 'insertOrderedList' },
+  { label: '❝ Quote', title: 'Quote', command: 'quote' },
 ];
+const HIGHLIGHT_COLOR = 'rgba(255, 210, 60, 0.45)';
 
-const LINE_PREFIX = {
-  bullet: { re: /^\s*[-•*]\s+/, make: () => '- ' },
-  number: { re: /^\s*\d{1,3}[.)]\s+/, make: (i) => `${i + 1}. ` },
-  quote: { re: /^\s*>\s?/, make: () => '> ' },
-};
-const ANY_PREFIX = /^\s*(?:[-•*]\s+|\d{1,3}[.)]\s+|>\s?)/;
+function selectionIn(editor) {
+  const sel = document.getSelection();
+  return sel && sel.rangeCount && editor.contains(sel.anchorNode) ? sel : null;
+}
 
-// Puts `marker` around the selected text, or takes it off if already there.
-function wrapSelection(ta, marker) {
-  let { selectionStart: start, selectionEnd: end, value } = ta;
-  // Phones often select a word with its trailing space; keep markers tight.
-  while (end > start && /\s/.test(value[end - 1])) end--;
-  while (start < end && /\s/.test(value[start])) start++;
-  const n = marker.length;
-  const selected = value.slice(start, end);
-  if (value.slice(start - n, start) === marker && value.slice(end, end + n) === marker) {
-    ta.setRangeText(selected, start - n, end + n, 'select');
-  } else if (selected.length >= 2 * n && selected.startsWith(marker) && selected.endsWith(marker)) {
-    ta.setRangeText(selected.slice(n, -n), start, end, 'select');
+// The highlighted element around the cursor, if any.
+function highlightAt(editor) {
+  const sel = selectionIn(editor);
+  let node = sel && sel.anchorNode;
+  for (; node && node !== editor; node = node.parentNode) {
+    if (node.nodeType === 1 && (node.nodeName === 'MARK' || (node.style.backgroundColor && node.style.backgroundColor !== 'transparent'))) {
+      return node;
+    }
+  }
+  return null;
+}
+
+function inQuote(editor) {
+  const sel = selectionIn(editor);
+  let node = sel && sel.anchorNode;
+  for (; node && node !== editor; node = node.parentNode) if (node.nodeName === 'BLOCKQUOTE') return true;
+  return false;
+}
+
+function runCommand(editor, command) {
+  if (command === 'highlight') {
+    const mark = highlightAt(editor);
+    if (mark) {
+      mark.replaceWith(...mark.childNodes); // remove the highlight
+    } else {
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand('hiliteColor', false, HIGHLIGHT_COLOR);
+      document.execCommand('styleWithCSS', false, false);
+    }
+  } else if (command === 'quote') {
+    document.execCommand('formatBlock', false, inQuote(editor) ? 'div' : 'blockquote');
   } else {
-    ta.setRangeText(marker + selected + marker, start, end, 'end');
-    ta.setSelectionRange(start + n, start + n + selected.length);
+    document.execCommand(command, false, null);
   }
 }
 
-// Turns the selected lines into a list or quote, or back into plain lines.
-function prefixLines(ta, kind) {
-  const { selectionStart, selectionEnd, value } = ta;
-  const start = value.lastIndexOf('\n', selectionStart - 1) + 1;
-  let end = value.indexOf('\n', selectionEnd > selectionStart ? selectionEnd - 1 : selectionEnd);
-  if (end === -1) end = value.length;
-  const lines = value.slice(start, end).split('\n');
-  const { re, make } = LINE_PREFIX[kind];
-  const filled = lines.filter((l) => l.trim());
-  const already = filled.length > 0 && filled.every((l) => re.test(l));
-  let i = 0;
-  const block = lines
-    .map((l) => {
-      if (already) return l.replace(re, '');
-      if (!l.trim() && lines.length > 1) return l;
-      return make(i++) + l.replace(ANY_PREFIX, '');
-    })
-    .join('\n');
-  ta.setRangeText(block, start, end, 'end');
+function isActive(editor, command) {
+  if (!selectionIn(editor)) return false;
+  if (command === 'highlight') return Boolean(highlightAt(editor));
+  if (command === 'quote') return inQuote(editor);
+  try { return document.queryCommandState(command); } catch { return false; }
 }
 
-// Adds the toolbar above a note box and a live preview below it.
+// Turns a note form's textarea into a rich-text editor with a toolbar.
 function addFormatting(ta) {
+  const editor = document.createElement('div');
+  editor.className = 'note-editor rich';
+  editor.contentEditable = 'true';
+  editor.setAttribute('role', 'textbox');
+  editor.setAttribute('aria-multiline', 'true');
+  editor.setAttribute('aria-label', ta.placeholder || 'Note');
+  editor.dataset.placeholder = ta.placeholder || '';
+  ta.hidden = true;
+  ta.removeAttribute('required');
+
   const bar = document.createElement('div');
   bar.className = 'format-bar';
   bar.setAttribute('role', 'toolbar');
   bar.setAttribute('aria-label', 'Formatting');
-  for (const f of FORMAT_BUTTONS) {
+  const buttons = FORMAT_BUTTONS.map((f) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.title = f.title;
     b.setAttribute('aria-label', f.title);
+    b.setAttribute('aria-pressed', 'false');
     if (f.tag) {
       const t = document.createElement(f.tag);
       t.textContent = f.label;
@@ -324,31 +341,50 @@ function addFormatting(ta) {
     b.addEventListener('pointerdown', (e) => e.preventDefault());
     b.addEventListener('mousedown', (e) => e.preventDefault());
     b.addEventListener('click', () => {
-      ta.focus();
-      if (f.wrap) wrapSelection(ta, f.wrap);
-      else prefixLines(ta, f.line);
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      if (!selectionIn(editor)) editor.focus();
+      runCommand(editor, f.command);
+      sync();
+      refreshButtons();
     });
-    bar.append(b);
-  }
-  ta.before(bar);
+    return { b, f };
+  });
+  bar.append(...buttons.map((x) => x.b));
+  ta.before(bar, editor);
 
-  const preview = document.createElement('div');
-  preview.className = 'note-preview rich';
-  preview.hidden = true;
-  preview.setAttribute('aria-label', 'Preview');
-  ta.after(preview);
-  const update = () => {
-    // Grow with the text so longer notes don't scroll inside a small box.
-    ta.style.height = 'auto';
-    if (ta.scrollHeight) ta.style.height = `${Math.min(ta.scrollHeight + 2, 320)}px`;
-    const show = NoteFormat.hasFormatting(ta.value);
-    preview.hidden = !show;
-    if (show) preview.innerHTML = NoteFormat.toHtml(ta.value);
-  };
-  ta.addEventListener('input', update);
-  ta.form.addEventListener('reset', () => setTimeout(update));
-  return update;
+  const empty = () => !editor.textContent.trim() && !editor.querySelector('li');
+  function sync() {
+    ta.value = empty() ? '' : NoteFormat.fromElement(editor);
+    editor.classList.toggle('is-empty', empty());
+  }
+  function refreshButtons() {
+    for (const { b, f } of buttons) b.setAttribute('aria-pressed', String(isActive(editor, f.command)));
+  }
+  function set(text) {
+    editor.innerHTML = text ? NoteFormat.toHtml(text) : '';
+    sync();
+  }
+
+  editor.addEventListener('focus', () => {
+    try { document.execCommand('defaultParagraphSeparator', false, 'div'); } catch { /* not supported */ }
+  });
+  editor.addEventListener('input', sync);
+  document.addEventListener('selectionchange', () => { if (selectionIn(editor)) refreshButtons(); });
+
+  // Paste and drop as plain text, so formatting from other sites can't sneak in.
+  editor.addEventListener('paste', (e) => {
+    e.preventDefault();
+    document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+  });
+  editor.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const text = e.dataTransfer.getData('text/plain');
+    if (text) document.execCommand('insertText', false, text);
+  });
+
+  ta.form.addEventListener('reset', () => setTimeout(() => set('')));
+  ta.richEditor = { set, focus: () => editor.focus(), isEmpty: empty };
+  set(ta.value);
+  return ta.richEditor;
 }
 
 function renderEntry(entry) {
@@ -368,6 +404,10 @@ function renderEntry(entry) {
   addFormatting($('.note-form textarea', el));
   $('.note-form', el).addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!e.target.body.value.trim()) {
+      e.target.body.richEditor.focus();
+      return;
+    }
     const form = new FormData(e.target);
     try {
       await api(`/api/journal/${entry.id}/notes`, { method: 'POST', body: Object.fromEntries(form) });
@@ -400,15 +440,18 @@ function renderNote(note) {
     editForm.hidden = !on;
     $('.body', el).hidden = on;
     if (on) {
-      editForm.body.value = note.body;
-      editForm.body.dispatchEvent(new Event('input'));
-      editForm.body.focus();
+      editForm.body.richEditor.set(note.body);
+      editForm.body.richEditor.focus();
     }
   };
   $('.edit', el).addEventListener('click', () => setEditing(true));
   $('.cancel', editForm).addEventListener('click', () => setEditing(false));
   editForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!editForm.body.value.trim()) {
+      editForm.body.richEditor.focus();
+      return;
+    }
     try {
       await api(`/api/notes/${note.id}`, { method: 'PATCH', body: { body: editForm.body.value } });
       loadJournal();

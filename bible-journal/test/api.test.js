@@ -197,6 +197,16 @@ test('static UI is served', async () => {
     assert.equal(res.status, 200);
     assert.match(await res.text(), /Bible Journal/);
     assert.equal((await fetch(`${s.base}/..%2Fserver.js`)).status, 404);
+
+    // Home-screen install files.
+    const manifest = await fetch(`${s.base}/manifest.webmanifest`);
+    assert.equal(manifest.status, 200);
+    const { icons } = await manifest.json();
+    for (const icon of icons) {
+      const res = await fetch(`${s.base}/${icon.src}`);
+      assert.equal(res.headers.get('content-type'), 'image/png', icon.src);
+    }
+    assert.match((await fetch(`${s.base}/sw.js`)).headers.get('content-type'), /javascript/);
   } finally {
     await s.close();
   }

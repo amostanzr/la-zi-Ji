@@ -29,6 +29,16 @@ Requires Node 22.13 or newer. Data is stored in `data.sqlite` (override with `DB
 - **Sharing**: share a saved verse with a friend, with or without one of your notes and an optional message.
   Sharing a private note shows it only to that friend. The friend can save the verse into their own journal.
 
+## Installing on a phone
+
+The app can be added to a phone's home screen. It then opens full-screen with its own icon, like an app.
+
+- **iPhone:** open the app in Safari, tap the Share button, then **Add to Home Screen**.
+- **Android:** open the app in Chrome, tap the ⋮ menu, then **Add to Home screen** or **Install app**.
+
+Android only offers the full install when the app is served over HTTPS, i.e. once it's online.
+On a home Wi‑Fi address (`http://192.168…`) it adds a shortcut instead.
+
 ## Deploying
 
 Set `SECURE_COOKIES=1` when serving over HTTPS. Set `PORT` to change the port.

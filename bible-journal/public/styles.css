@@ -10,6 +10,7 @@
   --accent-text: #ffffff;
   --danger: #b3261e;
   --notice-bg: #fff4dc;
+  --bar: #7a4b2a;
   --radius: 10px;
   color-scheme: light;
 }
@@ -24,6 +25,7 @@
     --accent-text: #1b1917;
     --danger: #ff8a80;
     --notice-bg: #3a3020;
+    --bar: #3b2616;
     color-scheme: dark;
   }
 }
@@ -35,16 +37,22 @@ body {
   color: var(--text);
   font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-main { max-width: 760px; margin: 0 auto; padding: 16px; }
+main {
+  max-width: 760px; margin: 0 auto;
+  padding: 16px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
 h1 { font-size: 1.25rem; margin: 0; }
 h2 { font-size: 1.1rem; margin: 0 0 12px; }
 h3 { font-size: 1rem; margin: 20px 0 8px; }
 
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+  /* Extends under the phone's status bar when opened from the home screen. */
+  padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+  background: var(--bar); color: #fff;
 }
-.whoami { display: flex; gap: 12px; align-items: center; color: var(--muted); }
+.whoami { display: flex; gap: 12px; align-items: center; color: rgba(255, 255, 255, .8); }
+.whoami .link { color: #fff; }
 
 .card {
   background: var(--surface); border: 1px solid var(--border);
@@ -127,7 +135,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .4); }
 dialog h3 { margin-top: 0; }
 
 .toast {
-  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
   background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 8px;
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

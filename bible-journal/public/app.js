@@ -441,3 +441,7 @@ $('#friend-search').addEventListener('submit', async (e) => {
     render();
   }
 })();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}

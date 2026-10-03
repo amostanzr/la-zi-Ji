@@ -4,6 +4,21 @@ Paste a Bible verse from any app or website, and the app tidies it up and saves
 it to your own journal. You can write public or private notes on your verses,
 add friends, and share verses and notes with each other.
 
+## Trying it on your computer
+
+1. Install Node.js (the **LTS** version) from https://nodejs.org. Version 22.13 or newer is needed.
+2. Double-click **Start Bible Journal.command** (Mac) or **Start Bible Journal.bat** (Windows).
+   - Mac: if it says the file is from an unidentified developer, right-click it, choose **Open**, then **Open** again.
+   - Windows: if a blue "Windows protected your PC" box appears, click **More info**, then **Run anyway**.
+   - If your computer asks whether to allow incoming network connections, click **Allow**. The phone needs this.
+3. The window shows two addresses. Open the first in your computer's browser.
+   To use your phone, connect it to the same Wi‑Fi and open the "On your phone" address.
+4. Keep the window open while you use the app. Close it, or press Ctrl+C, to stop.
+
+Everything you save is kept in `data.sqlite` in this folder. Delete that file to start again with no accounts.
+
+## For developers
+
 No dependencies: it uses Node's built-in HTTP server and SQLite (`node:sqlite`).
 
 ```sh

@@ -635,49 +635,8 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   }
   .power-meter.active .power-chili{filter:drop-shadow(0 2px 2px rgba(0,0,0,0.5)) drop-shadow(0 0 6px rgba(255,200,110,0.9));}
 
-  /* small flames dancing along the top edge of the track, intensifying with heat */
-  .power-flames{
-    position:absolute; left:26px; right:10px; bottom:calc(100% - 2px); z-index:1;
-    height:0; display:flex; justify-content:space-between; align-items:flex-end;
-    pointer-events:none;
-  }
-  .power-flames .flame{
-    display:block; width:6px; height:0; opacity:0;
-    background:linear-gradient(180deg, #FFE39B 0%, #FFAB4D 40%, #E2543A 75%, #B23A1E 100%);
-    border-radius:50% 50% 50% 50% / 65% 65% 35% 35%;
-    transform-origin:bottom center;
-    transition:height 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
-  }
-  .power-flames .flame:nth-child(1){ animation-delay:0s; }
-  .power-flames .flame:nth-child(2){ animation-delay:0.16s; }
-  .power-flames .flame:nth-child(3){ animation-delay:0.06s; }
-  .power-flames .flame:nth-child(4){ animation-delay:0.22s; }
-  .power-flames .flame:nth-child(5){ animation-delay:0.1s; }
-  .power-flames .flame:nth-child(3){ width:7px; }
-
-  .power-flames.warm .flame{ height:6px; opacity:0.55; animation-name:flameFlicker; animation-duration:0.9s; animation-timing-function:ease-in-out; animation-iteration-count:infinite; }
-  .power-flames.hot .flame{
-    height:11px; opacity:0.9;
-    filter: drop-shadow(0 0 4px rgba(255,150,50,0.6));
-    animation-name:flameFlicker; animation-duration:0.5s; animation-timing-function:ease-in-out; animation-iteration-count:infinite;
-  }
-  .power-flames.active .flame{
-    height:13px; opacity:1;
-    filter: drop-shadow(0 0 8px rgba(255,180,80,0.9));
-    animation-name:flameFlicker, flameSway;
-    animation-duration:0.3s, 0.55s;
-    animation-timing-function:ease-in-out, ease-in-out;
-    animation-iteration-count:infinite, infinite;
-  }
-  .power-flames.active .flame:nth-child(3){ height:16px; }
-  @keyframes flameFlicker{
-    0%,100%{ transform:scaleY(1) scaleX(1); }
-    50%{ transform:scaleY(1.3) scaleX(0.8); }
-  }
-  @keyframes flameSway{
-    0%,100%{ margin-left:0; }
-    50%{ margin-left:2px; }
-  }
+  /* fire burning along the top of the filled part of the meter (particles drawn by createMeterFire) */
+  .meter-fire{position:absolute; left:14px; bottom:calc(100% - 9px); width:calc(100% - 14px); height:46px; z-index:1; pointer-events:none;}
 
   .power-fill{
     position:absolute; left:0; top:0; bottom:0; width:0%; border-radius:9px;
@@ -820,9 +779,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   </div>
   <div class="splash-name">Find the chicken</div>
   <div class="power-meter" id="splash-load">
-    <div class="power-flames" id="splash-load-flames">
-      <span class="flame"></span><span class="flame"></span><span class="flame"></span><span class="flame"></span><span class="flame"></span>
-    </div>
+    <canvas class="meter-fire" id="splash-load-fire" aria-hidden="true"></canvas>
     <div class="power-frame"><div class="power-track"><div class="power-fill" id="splash-load-fill"></div><div class="power-ticks"></div></div></div>
     <svg class="power-chili" viewBox="-40 -40 80 80" aria-hidden="true">
       <g transform="rotate(62) scale(.1)">
@@ -898,9 +855,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
       <div class="stat power-stat" id="hud-power-wrap" style="display:none;">
         <span class="label" id="hud-power-label">power</span>
         <div class="power-meter">
-          <div class="power-flames" id="power-flames">
-            <span class="flame"></span><span class="flame"></span><span class="flame"></span><span class="flame"></span><span class="flame"></span>
-          </div>
+          <canvas class="meter-fire" id="power-fire" aria-hidden="true"></canvas>
           <div class="power-frame"><div class="power-track"><div class="power-fill" id="power-fill"></div><div class="power-ticks"></div></div></div>
           <svg class="power-chili" viewBox="-40 -40 80 80" aria-hidden="true">
             <defs><linearGradient id="gPowerPod" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E4533A"/><stop offset=".5" stop-color="#B8281A"/><stop offset="1" stop-color="#6E140F"/></linearGradient></defs>
@@ -1281,7 +1236,7 @@ document.addEventListener('touchmove', function(e){
    'skin-balance','lock-dialog-title','skin-desc','skin-bg-preview','skin-progress-wrap','skin-progress-fill','skin-progress-text',
    'lock-dialog-overlay','lock-dialog-msg',
    'sr-status','end-title','end-message','end-a','end-b','end-c','end-a-label','end-b-label','end-c-label','end-board',
-   'hud-timer-wrap','hud-timer','hud-power-wrap','hud-power-label','power-fill','power-flames',
+   'hud-timer-wrap','hud-timer','hud-power-wrap','hud-power-label','power-fill','power-fire',
    'countdown-overlay','countdown-number',
    'leaderboard-btn','leaderboard-screen','leaderboard-back-btn','leaderboard-list','leaderboard-empty',
    'menu-best-score','new-best-badge','new-unlock-notice','leaderboard-rank-notice',
@@ -2375,31 +2330,99 @@ document.addEventListener('touchmove', function(e){
     updatePowerBarUI();
   }
 
+  /**
+   * Live fire along the top of a power meter: small glowing particles rise from the filled part,
+   * cooling from yellow to red as they fade. It starts at "warm" (45%), grows when "hot" (85%) and
+   * roars when powered up. It only animates while there is fire to draw, and not at all for
+   * players who ask for reduced motion.
+   */
+  function createMeterFire(canvas){
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const RATE = { '':0, warm:1.2, hot:3, active:4.5 }, SIZE = { '':0, warm:0.75, hot:1, active:1.25 };
+    const TRACK_LEFT = 15, TRACK_PAD = 3;   // the fire sits over the track, not the chili cap
+    const ctx = canvas.getContext('2d');
+    const parts = [];
+    let level = 0, heat = '', running = false, last = 0, carry = 0, W = 0, H = 0;
+
+    function measure(){
+      // layout size, so a scaled-down HUD still draws crisply
+      const w = canvas.offsetWidth, h = canvas.offsetHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
+      if(w === W && h === H) return;
+      W = w; H = h;
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    function frame(now){
+      if(!canvas.isConnected || (!heat && !parts.length) || !canvas.offsetParent){
+        running = false; parts.length = 0; ctx.clearRect(0, 0, W, H); return;
+      }
+      measure();
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const filled = Math.max(0, (W - TRACK_LEFT - TRACK_PAD) * level / 100);
+      carry += RATE[heat] * 50 * (filled / 200) * dt;   // particles per second, scaled by how much is filled
+      while(carry >= 1){
+        carry -= 1;
+        parts.push({ x: TRACK_LEFT + Math.random() * filled, y: H - 10, vx: (Math.random() - 0.5) * 8,
+          vy: -(18 + Math.random() * 26) * SIZE[heat], r: (2.6 + Math.random() * 2.8) * SIZE[heat],
+          life: 0, max: 0.45 + Math.random() * 0.45, seed: Math.random() * 6 });
+      }
+      ctx.clearRect(0, 0, W, H);
+      for(let i = parts.length - 1; i >= 0; i--){
+        const p = parts[i];
+        p.life += dt;
+        const k = p.life / p.max;
+        if(k >= 1){ parts.splice(i, 1); continue; }
+        p.x += (p.vx + Math.sin(now / 160 + p.seed) * 6) * dt;
+        p.y += p.vy * dt;
+        const r = p.r * (1 - k * 0.7) * 2.2;
+        const c = k < 0.25 ? '255,236,170' : k < 0.55 ? '255,160,60' : '214,60,30';   // cools as it rises
+        const a = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * 0.8;
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        g.addColorStop(0, 'rgba(' + c + ',' + a + ')');
+        g.addColorStop(1, 'rgba(' + c + ',0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      requestAnimationFrame(frame);
+    }
+    return {
+      /** pct: how full the meter is (0-100); powered: the power-up is running */
+      set(pct, powered){
+        level = powered ? 100 : pct;
+        heat = powered || pct >= 100 ? 'active' : pct >= 85 ? 'hot' : pct >= 45 ? 'warm' : '';
+        if(reduceMotion || running || !heat) return;
+        running = true; last = performance.now();
+        requestAnimationFrame(frame);
+      }
+    };
+  }
+  let powerFire = null;
+
   function updatePowerBarUI(){
     const fillEl = els['power-fill'];
     const labelEl = els['hud-power-label'];
-    const flamesEl = els['power-flames'];
+    if(!powerFire && els['power-fire']) powerFire = createMeterFire(els['power-fire']);
     if(!fillEl) return;
     fillEl.classList.remove('warm','hot','active');
     labelEl.classList.remove('warm','hot','active');
-    flamesEl.classList.remove('warm','hot','active');
     const meterEl = fillEl.closest('.power-meter');
     if(meterEl) meterEl.classList.toggle('active', !!state.powerActive);
     if(state.powerActive){
       fillEl.style.width = '100%';
       fillEl.classList.add('active');
       labelEl.classList.add('active');
-      flamesEl.classList.add('active');
       labelEl.textContent = 'power!';
+      if(powerFire) powerFire.set(100, true);
     } else {
       const pct = Math.min(100, (state.powerFill / CONFIG.powerToss.tossesToFill) * 100);
       fillEl.style.width = pct + '%';
       if(pct >= 85){
-        fillEl.classList.add('hot'); labelEl.classList.add('hot'); flamesEl.classList.add('hot');
+        fillEl.classList.add('hot'); labelEl.classList.add('hot');
       } else if(pct >= 45){
-        fillEl.classList.add('warm'); labelEl.classList.add('warm'); flamesEl.classList.add('warm');
+        fillEl.classList.add('warm'); labelEl.classList.add('warm');
       }
       labelEl.textContent = 'power';
+      if(powerFire) powerFire.set(pct, false);
     }
   }
 
@@ -3633,11 +3656,13 @@ document.addEventListener('touchmove', function(e){
     const splash = document.getElementById('splash');
     if(!splash) return;
     const bar = document.getElementById('splash-load'), fill = document.getElementById('splash-load-fill');
-    const flames = document.getElementById('splash-load-flames');
+    const fire = createMeterFire(document.getElementById('splash-load-fire'));
     // same heat steps as the Challenge power meter: warm, hot, then "active" once it's full
-    const heat = level => {
-      for(const el of [fill, flames]){ el.classList.remove('warm','hot','active'); if(level) el.classList.add(level); }
+    const heat = (level, pct) => {
+      fill.classList.remove('warm','hot','active');
+      if(level) fill.classList.add(level);
       bar.classList.toggle('active', level === 'active');
+      fire.set(pct, false);
     };
     let sawProgress = false;
     // show a sliding fill until the download reports its size
@@ -3646,12 +3671,12 @@ document.addEventListener('touchmove', function(e){
       sawProgress = true;
       bar.classList.remove('unknown');
       fill.style.width = (f * 100).toFixed(1) + '%';
-      heat(f >= 0.85 ? 'hot' : f >= 0.45 ? 'warm' : '');
+      heat(f >= 0.85 ? 'hot' : f >= 0.45 ? 'warm' : '', f * 100);
     }).then(() => {
       clearTimeout(unknownTimer);
       bar.classList.remove('unknown');
       fill.style.width = '100%';
-      heat('active');
+      heat('active', 100);
     }, () => {});
     const shownFor = (window.performance && performance.now) ? performance.now() - (window.__splashShownAt || 0) : 0;
     const minTime = new Promise(r => setTimeout(r, Math.max(0, SPLASH_MS - shownFor)));

@@ -783,6 +783,12 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .splash .cn-title .ch:nth-child(2) .hz{color:#8A4A16;}
   .splash .cn-title .ch:nth-child(3) .hz{color:#6E3F12;}
   .splash-name{margin-top:10px; font-size:13px; letter-spacing:5px; color:rgba(59,36,21,0.7); text-transform:uppercase;}
+  .splash-load{margin-top:26px; width:160px; height:6px; border-radius:4px; overflow:hidden;
+    background:rgba(59,36,21,0.18); box-shadow:inset 0 1px 2px rgba(59,36,21,0.25);}
+  .splash-load-fill{height:100%; width:0; border-radius:4px; background:linear-gradient(90deg, #8E1C13, #C02E1E 60%, #E4533A);
+    transition:width 0.25s ease-out;}
+  .splash-load.unknown .splash-load-fill{width:35%; transition:none; animation:splashLoadSlide 1.1s ease-in-out infinite;}
+  @keyframes splashLoadSlide{ 0%{transform:translateX(-100%);} 100%{transform:translateX(290%);} }
 
   @media (prefers-reduced-motion: reduce){
     .splash-chili{animation:none;}
@@ -814,6 +820,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     <span class="ch"><span class="py">jī</span><span class="hz">鸡</span></span>
   </div>
   <div class="splash-name">Find the chicken</div>
+  <div class="splash-load" id="splash-load"><div class="splash-load-fill" id="splash-load-fill"></div></div>
 </div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -1528,19 +1535,38 @@ document.addEventListener('touchmove', function(e){
       });
     }
 
-    // The track is its own file so the game page stays small; it downloads in the
-    // background once the page has loaded, so it's usually ready by the first tap.
-    var musicFetch = null;
+    // The track is its own file so the game page stays small. It starts downloading while the
+    // splash is up (which shows its progress), so it's ready by the first tap.
+    var musicFetch = null, musicProgress = null;
     function fetchMusic(){
       if(!musicFetch){
         musicFetch = fetch(MUSIC_URL).then(function(r){
           if(!r.ok) throw new Error('HTTP ' + r.status);
-          return r.arrayBuffer();
+          var total = +r.headers.get('Content-Length') || 0;
+          if(!total || !r.body || !r.body.getReader) return r.arrayBuffer();
+          // read it in chunks so the splash bar can follow along
+          var reader = r.body.getReader(), chunks = [], got = 0;
+          return (function pump(){
+            return reader.read().then(function(part){
+              if(part.done){
+                var out = new Uint8Array(got), at = 0;
+                chunks.forEach(function(c){ out.set(c, at); at += c.length; });
+                return out.buffer;
+              }
+              chunks.push(part.value); got += part.value.length;
+              if(musicProgress) musicProgress(Math.min(1, got / total));
+              return pump();
+            });
+          })();
         });
       }
       return musicFetch;
     }
-    window.addEventListener('load', function(){ fetchMusic().catch(function(){ musicFetch = null; }); });
+    /** Starts the music download; onProgress gets 0..1 when the size is known. */
+    function preloadMusic(onProgress){
+      musicProgress = onProgress || null;
+      return fetchMusic().catch(function(e){ musicFetch = null; throw e; });
+    }
 
     function decodeToss(cb){
       if(tossBuffer){ if(cb) cb(tossBuffer); return; }
@@ -1624,7 +1650,7 @@ document.addEventListener('touchmove', function(e){
     function applySfx(){ if(sfxGain) sfxGain.gain.setTargetAtTime(sfxOn ? sfxVol : 0, ctx.currentTime, 0.03); }
 
     return {
-      init: init, resume: resume,
+      init: init, resume: resume, preloadMusic: preloadMusic,
       musicOn: function(){ return musicOn; },
       sfxOn: function(){ return sfxOn; },
       setMusicOn: function(v){ musicOn = v; applyMusic(); },
@@ -3587,18 +3613,36 @@ document.addEventListener('touchmove', function(e){
   });
 
   // ============ splash ============
-  // Shown from the very first paint; fades into the menu 2 seconds after it first appeared (counted
-  // from page start, not from when this large script finished loading), then leaves the page.
-  const SPLASH_MS = 2000;
+  // Shown from the very first paint. Its bar follows the music download, and it fades into the menu
+  // once the music is in and it has been up at least 2 seconds (counted from page start). If the
+  // download fails or stalls, the game goes ahead without waiting; the music plays once it arrives.
+  const SPLASH_MS = 2000, SPLASH_MAX_MS = 30000;
   (function hideSplash(){
     const splash = document.getElementById('splash');
     if(!splash) return;
+    const bar = document.getElementById('splash-load'), fill = document.getElementById('splash-load-fill');
+    let sawProgress = false;
+    // show a sliding bar until the download reports its size
+    const unknownTimer = setTimeout(() => { if(!sawProgress) bar.classList.add('unknown'); }, 300);
+    const music = Sfx.preloadMusic(f => {
+      sawProgress = true;
+      bar.classList.remove('unknown');
+      fill.style.width = (f * 100).toFixed(1) + '%';
+    }).then(() => {
+      clearTimeout(unknownTimer);
+      bar.classList.remove('unknown');
+      fill.style.width = '100%';
+    }, () => {});
     const shownFor = (window.performance && performance.now) ? performance.now() - (window.__splashShownAt || 0) : 0;
-    setTimeout(() => {
-      document.documentElement.classList.remove('splashing');   // the wood table returns as the splash fades over it
-      splash.classList.add('gone');
-      setTimeout(() => splash.remove(), 600);
-    }, Math.max(0, SPLASH_MS - shownFor));
+    const minTime = new Promise(r => setTimeout(r, Math.max(0, SPLASH_MS - shownFor)));
+    const maxTime = new Promise(r => setTimeout(r, SPLASH_MAX_MS));
+    Promise.race([Promise.all([minTime, music]), maxTime]).then(() => {
+      setTimeout(() => {   // a beat for the full bar to show
+        document.documentElement.classList.remove('splashing');   // the wood table returns as the splash fades over it
+        splash.classList.add('gone');
+        setTimeout(() => splash.remove(), 600);
+      }, 250);
+    });
   })();
 
   // ============ boot ============

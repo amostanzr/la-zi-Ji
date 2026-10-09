@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="splashing" lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
@@ -724,8 +724,14 @@
     position:fixed; left:0; right:0; top:0; height:100%; height:var(--full-h, 100%); z-index:5000;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:radial-gradient(120% 80% at 35% 25%, #FCE8AE 0%, #EFC169 50%, #C98E2E 100%);
+    /* For the first frames of a home-screen launch the iPhone reports the screen one status bar
+       short, before the full height is measured; this band of the splash's own bottom gold reaches
+       below the edge so no dark strip can show underneath. */
+    box-shadow:0 240px 0 0 #C98E2E;
     transition:opacity 0.45s ease, visibility 0s linear 0.45s;
   }
+  /* the page colour behind everything is gold too until the splash has gone */
+  html.splashing{background:#C98E2E;}
   .splash.gone{opacity:0; visibility:hidden; pointer-events:none;}
   .splash-glow{position:absolute; width:420px; height:420px; border-radius:50%; top:calc(50% - 300px);
     background:radial-gradient(circle, rgba(255,214,140,0.38), rgba(255,214,140,0) 65%); pointer-events:none;}
@@ -3494,7 +3500,7 @@ document.addEventListener('touchmove', function(e){
     if(!splash) return;
     setTimeout(() => {
       splash.classList.add('gone');
-      setTimeout(() => splash.remove(), 600);
+      setTimeout(() => { splash.remove(); document.documentElement.classList.remove('splashing'); }, 600);
     }, 1000);
   })();
 

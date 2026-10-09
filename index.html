@@ -18,6 +18,7 @@
     root.setProperty('--full-h', h + 'px');
     root.setProperty('--splash-h', h + 'px');   // fixed for the splash's lifetime, so it never shifts
   }catch(e){}
+  window.__splashShownAt = (window.performance && performance.now) ? performance.now() : 0;   // the splash's clock starts at first paint
 })();
 </script>
 <meta charset="UTF-8">
@@ -3513,15 +3514,18 @@ document.addEventListener('touchmove', function(e){
   });
 
   // ============ splash ============
-  // Shown from the very first paint; fades into the menu after a second, then leaves the page.
+  // Shown from the very first paint; fades into the menu 2 seconds after it first appeared (counted
+  // from page start, not from when this large script finished loading), then leaves the page.
+  const SPLASH_MS = 2000;
   (function hideSplash(){
     const splash = document.getElementById('splash');
     if(!splash) return;
+    const shownFor = (window.performance && performance.now) ? performance.now() - (window.__splashShownAt || 0) : 0;
     setTimeout(() => {
       document.documentElement.classList.remove('splashing');   // the wood table returns as the splash fades over it
       splash.classList.add('gone');
       setTimeout(() => splash.remove(), 600);
-    }, 1000);
+    }, Math.max(0, SPLASH_MS - shownFor));
   })();
 
   // ============ boot ============

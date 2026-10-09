@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html class="splashing" lang="en">
 <head>
+<script>
+// Runs before anything is drawn: measure the real screen height so the splash is laid out at its
+// final size from the first frame. Launched from the iPhone home screen, the viewport reports one
+// status bar short until the page has loaded; the full game script (several MB) re-measures later.
+(function(){
+  try{
+    var h = window.innerHeight;
+    var standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if(standalone && window.screen){
+      var landscape = window.innerWidth > window.innerHeight;
+      var sh = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+      if(sh > h && sh - h <= 120) h = sh;
+    }
+    var root = document.documentElement.style;
+    root.setProperty('--full-h', h + 'px');
+    root.setProperty('--splash-h', h + 'px');   // fixed for the splash's lifetime, so it never shifts
+  }catch(e){}
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -721,7 +740,7 @@
   }
   /* ===== splash: gold, like the app icon; fades into the menu after a second ===== */
   .splash{
-    position:fixed; left:0; right:0; top:0; height:100%; height:var(--full-h, 100%); z-index:5000;
+    position:fixed; left:0; right:0; top:0; height:100%; height:var(--splash-h, var(--full-h, 100%)); z-index:5000;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:radial-gradient(120% 80% at 35% 25%, #FCE8AE 0%, #EFC169 50%, #C98E2E 100%);
     /* For the first frames of a home-screen launch the iPhone reports the screen one status bar
@@ -731,7 +750,7 @@
     transition:opacity 0.45s ease, visibility 0s linear 0.45s;
   }
   /* the page colour behind everything is gold too until the splash has gone */
-  html.splashing{background:#C98E2E;}
+  html.splashing, html.splashing body{background:#C98E2E;}   /* gold behind the splash until it starts fading */
   .splash.gone{opacity:0; visibility:hidden; pointer-events:none;}
   .splash-glow{position:absolute; width:420px; height:420px; border-radius:50%; top:calc(50% - 300px);
     background:radial-gradient(circle, rgba(255,214,140,0.38), rgba(255,214,140,0) 65%); pointer-events:none;}
@@ -3499,8 +3518,9 @@ document.addEventListener('touchmove', function(e){
     const splash = document.getElementById('splash');
     if(!splash) return;
     setTimeout(() => {
+      document.documentElement.classList.remove('splashing');   // the wood table returns as the splash fades over it
       splash.classList.add('gone');
-      setTimeout(() => { splash.remove(); document.documentElement.classList.remove('splashing'); }, 600);
+      setTimeout(() => splash.remove(), 600);
     }, 1000);
   })();
 

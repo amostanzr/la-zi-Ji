@@ -240,6 +240,9 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .first-hint.fading{opacity:0;}
   .first-hint .info-steps p{font-size:13.5px; color:var(--porcelain); text-transform:none;}
   .first-hint .info-steps b{color:var(--gold);}
+  .first-hint-go{margin:12px 0 0; text-align:center; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold);
+    animation:hintGoPulse 1.6s ease-in-out infinite;}
+  @keyframes hintGoPulse{0%,100%{opacity:.55;} 50%{opacity:1;}}
   .countdown-number{
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-weight:800;
     font-size:min(22vw, 120px); line-height:1; color:var(--gold);
@@ -749,6 +752,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   @keyframes splashLoadSlide{ 0%{transform:translateX(-100%);} 100%{transform:translateX(290%);} }
 
   @media (prefers-reduced-motion: reduce){
+    .first-hint-go{animation:none;}
     .splash-chili{animation:none;}
     .power-fill::after, .power-fill.hot, .power-fill.active{animation:none;}
     .chicken.free, .chicken.free.big{animation:none;}
@@ -1006,6 +1010,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
             <p>Tap chicken when it <b>glows</b></p>
           </li>
         </ul>
+        <p class="first-hint-go">Tap to start</p>
       </div>
     </div>
     <div class="sr-status" role="status" aria-live="polite" id="sr-status"></div>
@@ -2279,7 +2284,6 @@ document.addEventListener('touchmove', function(e){
     Sfx.toss(chili.x);
     state.chiliesMoved += 1;
     updateHud();
-    if(!state.seenHint){ state.seenHint = true; saveBest(); hideFirstHint(); }
 
     // whatever this chili was covering may now be free
     for(const { chicken, idx } of chili.covering){
@@ -2678,15 +2682,18 @@ document.addEventListener('touchmove', function(e){
 
     stopSession();
 
+    let go;
     if(state.mode === 'challenge'){
       state.timeLeft = CONFIG.challengeDurationSec;
       setDisplay(els['hud-timer-wrap'], true);
       els['hud-timer'].textContent = state.timeLeft;
-      runCountdown(beginPlay);
+      go = () => runCountdown(beginPlay);
     } else {
       setDisplay(els['hud-timer-wrap'], false);
-      beginPlay();   // Relax mode jumps straight in, no countdown
+      go = beginPlay;   // Relax mode jumps straight in, no countdown
     }
+    // a first-time player reads the hint first; the countdown and clock wait for their tap
+    if(state.seenHint) go(); else showFirstHint(go);
   }
 
   /** 3-2-1 beat shown over the freshly-poured plate; play (and its timers) only starts once this resolves. */
@@ -2722,7 +2729,6 @@ document.addEventListener('touchmove', function(e){
   /** Actually unlocks interaction and kicks off the mode's timers, once the countdown has resolved. */
   function beginPlay(){
     state.playing = true;
-    if(!state.seenHint) showFirstHint();
 
     // Challenge mode refills the plate much quicker so the clock never gets
     // stuck waiting on a slow poll for an empty plate.
@@ -2753,18 +2759,40 @@ document.addEventListener('touchmove', function(e){
     }
   }
 
-  /** "Flick chilies, tap chicken" card for a player's first game; it goes once they flick a chili. */
-  function showFirstHint(){
-    els['first-hint'].classList.remove('hidden', 'fading');
-  }
-  function hideFirstHint(){
+  /**
+   * "Flick chilies, tap chicken" card for a player's first game. Play (and the Challenge
+   * countdown and clock) waits until they tap anywhere; that tap only dismisses the card.
+   */
+  let hintTapHandler = null;
+  function showFirstHint(onDismiss){
     const hint = els['first-hint'];
-    if(hint.classList.contains('hidden') || hint.classList.contains('fading')) return;
-    hint.classList.add('fading');
-    setTimeout(() => hint.classList.add('hidden'), 350);
+    hint.classList.remove('hidden', 'fading');
+    clearHintTap();
+    // ignore the tail of the tap that started the game, then wait for a fresh one
+    const shownAt = performance.now();
+    hintTapHandler = e => {
+      if(performance.now() - shownAt < 300) return;
+      e.preventDefault(); e.stopPropagation();
+      // and the click that follows it (dropped after a moment in case the tap was a drag)
+      document.addEventListener('click', swallowClick, { capture:true, once:true });
+      setTimeout(() => document.removeEventListener('click', swallowClick, true), 600);
+      clearHintTap();
+      state.seenHint = true;
+      saveBest();
+      hint.classList.add('fading');
+      setTimeout(() => hint.classList.add('hidden'), 350);
+      onDismiss();
+    };
+    document.addEventListener('pointerdown', hintTapHandler, true);
+  }
+  function swallowClick(e){ e.preventDefault(); e.stopPropagation(); }
+  function clearHintTap(){
+    if(hintTapHandler) document.removeEventListener('pointerdown', hintTapHandler, true);
+    hintTapHandler = null;
   }
 
   function stopSession(){
+    clearHintTap();
     els['first-hint'].classList.add('hidden');
     clearInterval(state.watcher);
     clearInterval(state.challengeTimer);

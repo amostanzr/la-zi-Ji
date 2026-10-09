@@ -719,7 +719,28 @@
     .stats{gap:16px;}
     .settings-panel{width:210px;}
   }
+  /* ===== splash: gold, like the app icon; fades into the menu after a second ===== */
+  .splash{
+    position:fixed; left:0; right:0; top:0; height:100%; height:var(--full-h, 100%); z-index:5000;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(120% 80% at 35% 25%, #FCE8AE 0%, #EFC169 50%, #C98E2E 100%);
+    transition:opacity 0.45s ease, visibility 0s linear 0.45s;
+  }
+  .splash.gone{opacity:0; visibility:hidden; pointer-events:none;}
+  .splash-glow{position:absolute; width:420px; height:420px; border-radius:50%; top:calc(50% - 300px);
+    background:radial-gradient(circle, rgba(255,214,140,0.38), rgba(255,214,140,0) 65%); pointer-events:none;}
+  .splash-chili{width:190px; height:190px; position:relative; animation:splashBob 2.6s ease-in-out infinite;}
+  @keyframes splashBob{0%,100%{transform:translateY(0) rotate(-3deg);} 50%{transform:translateY(-8px) rotate(3deg);}}
+  .splash .cn-title{margin-top:14px;}
+  .splash .cn-title .py{color:rgba(59,36,21,0.7);}
+  .splash .cn-title .hz{font-size:62px; text-shadow:0 1px 0 rgba(255,240,200,0.6), 0 3px 8px rgba(90,40,10,0.25);}
+  .splash .cn-title .ch:nth-child(1) .hz{color:#B8301C;}
+  .splash .cn-title .ch:nth-child(2) .hz{color:#8A4A16;}
+  .splash .cn-title .ch:nth-child(3) .hz{color:#6E3F12;}
+  .splash-name{margin-top:10px; font-size:13px; letter-spacing:5px; color:rgba(59,36,21,0.7); text-transform:uppercase;}
+
   @media (prefers-reduced-motion: reduce){
+    .splash-chili{animation:none;}
     .power-fill::after, .power-fill.hot, .power-fill.active{animation:none;}
     .chicken.free, .chicken.free.big{animation:none;}
     .chicken.rainbow, .chicken.rainbow.big, .chicken.rainbow::before{animation:none;}
@@ -739,6 +760,16 @@
 
 </head>
 <body>
+<div class="splash" id="splash" aria-hidden="true">
+  <div class="splash-glow"></div>
+  <svg class="splash-chili" viewBox="0 0 1024 1024" aria-hidden="true"><defs><linearGradient id="splash-pod" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E4533A"/><stop offset=".35" stop-color="#C02E1E"/><stop offset=".75" stop-color="#8E1C13"/><stop offset="1" stop-color="#63110C"/></linearGradient><filter id="splash-sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#2A1206" flood-opacity=".5"/></filter></defs><g transform="translate(512,545) rotate(62) scale(1.1)" filter="url(#splash-sh)"> <path d="M-250,-70 C-120,-122 60,-112 190,-60 C255,-32 300,10 330,60 C290,40 230,30 170,34 C40,44 -120,80 -250,72 C-300,70 -318,-50 -250,-70 Z" fill="url(#splash-pod)" stroke="#4E0F0A" stroke-width="9" stroke-linejoin="round"/> <path d="M-215,-44 C-100,-86 60,-82 170,-44" stroke="#FF8C6B" stroke-width="20" fill="none" stroke-linecap="round" opacity=".5"/> <path d="M-190,-32 C-90,-62 20,-62 110,-40" stroke="#FFE0D4" stroke-width="7" fill="none" stroke-linecap="round" opacity=".6"/> <path d="M-220,48 C-100,54 40,26 150,14" stroke="#3E0B08" stroke-width="12" fill="none" stroke-linecap="round" opacity=".28"/> <path d="M-60,-96 C-40,-30 -50,30 -70,70" stroke="#6E150E" stroke-width="5" fill="none" opacity=".35"/> <path d="M-262,-62 C-300,-40 -306,50 -262,66 C-240,40 -236,-30 -262,-62 Z" fill="#5E7F34" stroke="#2F4418" stroke-width="7" stroke-linejoin="round"/> <path d="M-248,-48 L-236,-66 M-246,50 L-232,64 M-250,0 L-228,0" stroke="#2F4418" stroke-width="6" stroke-linecap="round"/> <path d="M-282,0 C-320,-4 -352,-24 -372,-58" stroke="#5E7F34" stroke-width="22" fill="none" stroke-linecap="round"/> <path d="M-282,0 C-320,-4 -352,-24 -372,-58" stroke="#2F4418" stroke-width="22" fill="none" stroke-linecap="round" opacity="0"/> <path d="M-290,-6 C-318,-10 -342,-26 -360,-52" stroke="#9DBA63" stroke-width="6" fill="none" stroke-linecap="round" opacity=".7"/> </g></svg>
+  <div class="cn-title">
+    <span class="ch"><span class="py">là</span><span class="hz">辣</span></span>
+    <span class="ch"><span class="py">zǐ</span><span class="hz">子</span></span>
+    <span class="ch"><span class="py">jī</span><span class="hz">鸡</span></span>
+  </div>
+  <div class="splash-name">Find the chicken</div>
+</div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -3455,6 +3486,17 @@ document.addEventListener('touchmove', function(e){
     const t = e.target;
     if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) settleAfterKeyboard();
   });
+
+  // ============ splash ============
+  // Shown from the very first paint; fades into the menu after a second, then leaves the page.
+  (function hideSplash(){
+    const splash = document.getElementById('splash');
+    if(!splash) return;
+    setTimeout(() => {
+      splash.classList.add('gone');
+      setTimeout(() => splash.remove(), 600);
+    }, 1000);
+  })();
 
   // ============ boot ============
   loadBest();

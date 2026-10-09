@@ -1,4 +1,4 @@
-const CACHE = "laziji-v6";
+const CACHE = "laziji-v7";
 const CORE = [
   "./",
   "./index.html",
@@ -37,13 +37,15 @@ self.addEventListener("fetch", event => {
     );
     return;
   }
-  // Icons, manifest and other files: cache first, they rarely change.
+  // Icons, manifest, music and other files: cache first, they rarely change.
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put(event.request, copy));
+        }
         return response;
       }).catch(() => caches.match("./index.html"));
     })

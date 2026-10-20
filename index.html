@@ -144,7 +144,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .stat .value{font-size:22px; line-height:1.05; font-weight:700; font-variant-numeric:tabular-nums; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:var(--porcelain);}
   .hud-actions{display:flex; align-items:center; gap:8px;}
   .hud-icon-btn{
-    width:40px; height:40px; border-radius:50%; padding:0; flex:0 0 auto;
+    width:44px; height:44px; border-radius:50%; padding:0; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
     color:rgba(244,241,230,0.92); cursor:pointer;
     background:rgba(28,19,13,0.42); border:1px solid rgba(244,241,230,0.2);
@@ -420,6 +420,11 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     color:var(--porcelain); flex:1; text-align:left;
   }
   .leaderboard-date{font-size:11px; color:rgba(244,241,230,0.55); flex-shrink:0;}
+  .leaderboard-empty{margin-top:10px !important;}
+  .leaderboard-empty.hidden{display:none;}
+  #leaderboard-reset-btn{margin-top:8px; position:relative;}
+  #leaderboard-reset-btn::after{content:''; position:absolute; left:0; right:0; top:50%; height:44px; transform:translateY(-50%);}
+  #leaderboard-reset-btn.confirm{color:#FFB29A; border-color:rgba(226,84,58,0.7);}
   .leaderboard-name-entry.hidden{display:none;}
   .leaderboard-name-entry{
     display:flex; flex-direction:column; align-items:center; gap:6px; margin:2px 0;
@@ -502,7 +507,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   #end-screen .leaderboard-name-input{font-size:16px; letter-spacing:4px; width:88px; padding:6px 0 6px 4px;}
   .end-actions{display:flex; align-items:center; justify-content:center; gap:10px; margin-top:4px;}
   .end-actions .btn{margin-top:0; height:36px; padding-top:0; padding-bottom:0;}
-  .end-actions .btn.icon-btn{width:44px; height:40px; padding:0;}
+  .end-actions .btn.icon-btn{width:44px; height:44px; padding:0;}
   .end-actions .btn.icon-btn.hidden{display:none;}
   .skin-progress-wrap.owned{justify-content:center;}
   .skin-progress-wrap.owned .skin-progress-track{display:none;}
@@ -569,7 +574,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .btn.small{font-size:12.5px; padding:6px 15px; margin-top:0;}
   .btn.tiny{font-size:11.5px; padding:4px 10px; margin-top:0;}
   .btn.tiny.off{opacity:0.5;}
-  .btn.icon-btn{width:40px; height:40px; padding:0; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1;}
+  .btn.icon-btn{width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1;}
   .info-steps{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:11px;}
   .info-steps li{display:flex; align-items:center; gap:10px;}
   .info-step-icon{
@@ -598,7 +603,10 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .btn:disabled{opacity:0.4; cursor:default;}
   .btn:disabled:hover{filter:none;}
   .btn:disabled:active{transform:none; box-shadow:var(--btn-gold-shadow);}
-  #zen-btn, #challenge-btn{animation: playGlow 2.6s ease-in-out infinite;}
+  #zen-btn, #challenge-btn{animation: playGlow 2.6s ease-in-out infinite; padding-top:12px; padding-bottom:12px;}   /* 44px tall */
+  /* small buttons that keep their look but get a 44px tap area (Apple's minimum) */
+  #upgrades-btn, #skin-back-btn{position:relative;}
+  #upgrades-btn::after, #skin-back-btn::after{content:''; position:absolute; left:50%; top:50%; width:max(100%, 44px); height:44px; transform:translate(-50%,-50%);}
   #zen-btn:hover, #challenge-btn:hover{animation-play-state:paused;}
   #zen-btn:active, #challenge-btn:active{animation:none;}
   @keyframes playGlow{
@@ -674,11 +682,24 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .power-stat .label{transition:color 0.2s ease, text-shadow 0.2s ease;}
   .power-stat .label.warm{color:#F0A15E;}
   .power-stat .label.hot{color:#FFB25E; text-shadow:0 0 6px rgba(255,150,60,0.65);}
+  /* "Power!": punches in when the meter fills, then beats while its letters ripple and flicker */
   .power-stat .label.active{
-    color:#FFD97A; text-shadow:0 0 8px rgba(255,200,100,0.95);
-    animation: labelShake 0.35s ease-in-out infinite;
+    color:#FFD97A; text-shadow:0 0 8px rgba(255,200,100,0.95); font-weight:800; transform-origin:50% 70%;
+    animation: powerPunch 0.55s cubic-bezier(.2,1.5,.4,1) both, powerBeat 0.9s ease-in-out 0.55s infinite;
   }
-  @keyframes labelShake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-1.5px);} 75%{transform:translateX(1.5px);} }
+  .power-stat .label .pw{display:inline-block; text-transform:none;}
+  .power-stat .label.active .pw{animation: powerWave 0.5s ease-in-out infinite alternate, powerHeat 0.9s ease-in-out infinite alternate;}
+  @keyframes powerPunch{
+    0%{ transform:scale(2.6) rotate(-6deg); opacity:0; }
+    55%{ transform:scale(0.88) rotate(2deg); opacity:1; }
+    100%{ transform:scale(1) rotate(0); }
+  }
+  @keyframes powerBeat{
+    0%,100%{ transform:scale(1); }
+    35%{ transform:scale(1.12); text-shadow:0 0 6px #fff, 0 0 14px rgba(255,170,60,1), 0 0 24px rgba(255,90,30,0.7); }
+  }
+  @keyframes powerWave{ from{ transform:translateY(2px); } to{ transform:translateY(-3px); } }
+  @keyframes powerHeat{ from{ color:#FFF3C4; } to{ color:#FF9A3D; } }
   /* one-shot ring burst fired the instant the meter maxes out */
   .power-burst{
     position:absolute; left:50%; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px;
@@ -755,6 +776,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     .first-hint-go{animation:none;}
     .splash-chili{animation:none;}
     .power-fill::after, .power-fill.hot, .power-fill.active{animation:none;}
+    .power-stat .label.active, .power-stat .label.active .pw{animation:none;}
     .chicken.free, .chicken.free.big{animation:none;}
     .chicken.rainbow, .chicken.rainbow.big, .chicken.rainbow::before{animation:none;}
     #zen-btn, #challenge-btn, .chip i, .steam, .screen .cn-title .hz, #settings-btn.nudge{animation:none;}
@@ -767,6 +789,20 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
 
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png">
+<!-- iPhone launch images (made by tools/make-launch-images.js): the gold splash shows from the first frame -->
+<link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/launch/launch-640x1136.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/launch/launch-750x1334.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1242x2208.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1125x2436.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/launch/launch-828x1792.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1242x2688.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1170x2532.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1284x2778.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1179x2556.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1290x2796.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1206x2622.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1320x2868.jpg">
+<link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/launch/launch-1260x2736.jpg">
 <meta name="theme-color" content="#6E4425">
 <meta name="apple-mobile-web-app-title" content="辣子鸡">
 <meta name="application-name" content="辣子鸡">
@@ -1073,6 +1109,8 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     <div class="screen hidden" id="leaderboard-screen">
       <h2>Challenge leaderboard</h2>
       <div class="leaderboard-list" id="leaderboard-list"></div>
+      <p class="leaderboard-empty hidden" id="leaderboard-empty">No scores yet. Play Challenge to get on the board!</p>
+      <button class="btn ghost small hidden" id="leaderboard-reset-btn">Reset</button>
       <button class="btn ghost icon-btn" id="leaderboard-back-btn" aria-label="Back" title="Back"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
     </div>
 
@@ -1243,7 +1281,7 @@ document.addEventListener('touchmove', function(e){
    'sr-status','end-title','end-message','end-a','end-b','end-c','end-a-label','end-b-label','end-c-label','end-board',
    'hud-timer-wrap','hud-timer','hud-power-wrap','hud-power-label','power-fill','power-fire',
    'countdown-overlay','countdown-number',
-   'leaderboard-btn','leaderboard-screen','leaderboard-back-btn','leaderboard-list','leaderboard-empty',
+   'leaderboard-btn','leaderboard-screen','leaderboard-back-btn','leaderboard-list','leaderboard-empty','leaderboard-reset-btn',
    'menu-best-score','new-best-badge','new-unlock-notice','leaderboard-rank-notice',
    'leaderboard-name-entry','leaderboard-name-input'
   ].forEach(id => { els[id] = document.getElementById(id); });
@@ -1307,16 +1345,10 @@ document.addEventListener('touchmove', function(e){
 
   // ============ leaderboard ============
   /**
-   * Records a Challenge-mode score, highest first (older wins ties), capped to
-   * CONFIG.leaderboardSize entries. Returns { rank, entry }: rank is the 1-based
-   * rank the run landed at (0 if it didn't make the cut), and entry is the
-   * leaderboard record itself so the name field can be edited in place.
-   */
-  /**
-   * Works out what rank a fresh Challenge score WOULD land at, without touching the saved
-   * leaderboard yet — the run only actually joins the board once the player confirms a name
-   * and leaves the results screen (see commitPendingLeaderboardEntry). Returns
-   * { rank, entry, board }: board is the full candidate list to save if they do.
+   * Works out what rank a fresh Challenge score lands at, highest first (older wins ties), capped
+   * to CONFIG.leaderboardSize entries. Returns { rank, entry, board }: rank is 1-based (0 if it
+   * didn't make the cut), entry is the record itself so the name field can edit it in place, and
+   * board is the new list to save.
    */
   function previewLeaderboard(score){
     if(score <= 0) return { rank:0, entry:null, board:null };
@@ -1328,19 +1360,18 @@ document.addEventListener('touchmove', function(e){
     return { rank, entry: rank > 0 ? entry : null, board: rank > 0 ? trimmed : null };
   }
 
-  /** Saves the pending run onto the leaderboard, but only if a name was actually entered. */
+  /** Leaving the results: the run is already on the board, so just stop editing its name. */
   function commitPendingLeaderboardEntry(){
-    const entry = state.pendingLeaderboardEntry, board = state.pendingLeaderboardBoard;
-    if(entry && board){
-      const name = (els['leaderboard-name-input'].value || '').trim();
-      if(name){
-        entry.name = name;
-        state.challengeLeaderboard = board;
-        saveBest();
-      }
-    }
     state.pendingLeaderboardEntry = null;
     state.pendingLeaderboardBoard = null;
+  }
+
+  /** Clears the Challenge leaderboard and best Challenge score (Relax scores and plates are kept). */
+  function resetLeaderboard(){
+    state.challengeLeaderboard = [];
+    state.bestChallenge = 0;
+    saveBest();
+    renderLeaderboard();
   }
 
   function formatLeaderboardDate(ts){
@@ -1355,12 +1386,18 @@ document.addEventListener('touchmove', function(e){
     list.innerHTML = '';
     const hasEntries = state.challengeLeaderboard.length > 0;
     if(empty) empty.classList.toggle('hidden', hasEntries);
+    const reset = els['leaderboard-reset-btn'];
+    if(reset){
+      reset.classList.toggle('hidden', !hasEntries);
+      reset.classList.remove('confirm');
+      reset.textContent = 'Reset';
+    }
     state.challengeLeaderboard.forEach((entry, i) => {
       const row = document.createElement('div');
       row.className = 'leaderboard-row' + (i === 0 ? ' top' : '');
       row.innerHTML =
         `<span class="leaderboard-rank">#${i+1}</span>` +
-        `<span class="leaderboard-name">${(entry.name || '----').slice(0,4)}</span>` +
+        `<span class="leaderboard-name">${(entry.name || 'YOU').slice(0,4)}</span>` +
         `<span class="leaderboard-score">${entry.score} pts</span>` +
         `<span class="leaderboard-date">${formatLeaderboardDate(entry.date)}</span>`;
       list.appendChild(row);
@@ -2415,7 +2452,10 @@ document.addEventListener('touchmove', function(e){
       fillEl.style.width = '100%';
       fillEl.classList.add('active');
       labelEl.classList.add('active');
-      labelEl.textContent = 'power!';
+      // one span per letter so they can ripple; only built once, so the punch-in doesn't restart
+      if(!labelEl.querySelector('.pw')){
+        labelEl.innerHTML = [...'Power!'].map((c, i) => `<span class="pw" style="animation-delay:${(i * 0.08).toFixed(2)}s">${c}</span>`).join('');
+      }
       if(powerFire) powerFire.set(100, true);
     } else {
       const pct = Math.min(100, (state.powerFill / CONFIG.powerToss.tossesToFill) * 100);
@@ -2886,7 +2926,10 @@ document.addEventListener('touchmove', function(e){
     if(nameEntry && nameInput){
       nameEntry.classList.toggle('hidden', !ranked);
       if(ranked){
+        // the run goes on the board now, under the last name used (or "YOU"); typing renames it
         state.pendingLeaderboardEntry = leaderboardEntry;
+        state.challengeLeaderboard = state.pendingLeaderboardBoard;
+        saveBest();
         nameInput.value = state.playerName || '';
       } else {
         state.pendingLeaderboardEntry = null;
@@ -3138,7 +3181,28 @@ document.addEventListener('touchmove', function(e){
       if(state.pendingLeaderboardEntry) state.pendingLeaderboardEntry.name = name;
       saveBest();
     });
+    // Return / Done on the keyboard just closes it; the name is already saved
+    els['leaderboard-name-input'].addEventListener('keydown', e => {
+      if(e.key === 'Enter') e.target.blur();
+    });
   }
+
+  // reset: first tap asks, a second tap within 3 seconds clears the board
+  let resetConfirmTimer = null;
+  onClickStop('leaderboard-reset-btn', () => {
+    const btn = els['leaderboard-reset-btn'];
+    clearTimeout(resetConfirmTimer);
+    if(btn.classList.contains('confirm')){
+      resetLeaderboard();
+      return;
+    }
+    btn.classList.add('confirm');
+    btn.textContent = 'Tap again to reset';
+    resetConfirmTimer = setTimeout(() => {
+      btn.classList.remove('confirm');
+      btn.textContent = 'Reset';
+    }, 3000);
+  });
 
   // "you need more points" toast for locked skins
   let lockDialogTimer = null;

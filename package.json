@@ -1,0 +1,12 @@
+{
+  "name": "la-zi-ji",
+  "private": true,
+  "description": "辣子鸡 — Find The Chicken. The game itself has no build step; this is only for the checks.",
+  "scripts": {
+    "test": "node tests/iphone-home-screen.js",
+    "launch-images": "node tools/make-launch-images.js"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}

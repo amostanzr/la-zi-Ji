@@ -45,8 +45,8 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
 
 ## Next to-dos
 
-0. **In progress, not merged** (branch `claude/gifted-planck-x80p4w`): the tumbling toss (first version) with the steady-glow approach above. An earlier attempt with a pulsing halo and extra layers lagged badly on the iPhone and was reverted. Next: the player tries it on the phone, then get approval and merge.
 1. **Friends competition:** leaderboards are saved per phone only. Idea: a daily shared plate plus a shareable score card.
-2. **3D direction:** the middle route (2D with the 3D-style tumble) is being tried first, see item 0. The full 3D rebuild (`prototype-3d/`) is on hold.
+2. **3D direction:** the middle route (2D with the 3D-style tumble) is now in the game. The full 3D rebuild (`prototype-3d/`) is on hold.
+5. **If the phone still runs warm:** draw the pile's chili and chicken designs once as ready-made pictures, instead of re-shading about 400 vector drawings whenever a chili leaves. Taps would then need to use the shape outlines that cover detection already has. It's a bigger change, so do it on its own branch.
 3. **Visit count:** a simple, privacy-friendly count (for example GoatCounter, which needs a sign-up and a change to the page's Content-Security-Policy). Skipped for now.
 4. **Smaller buttons still under 44 px** (not on the original list): the plate-screen arrows (32), the Music and Sound "On" toggles, and the plate dots.

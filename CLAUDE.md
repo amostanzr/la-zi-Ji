@@ -17,12 +17,16 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
   - `audio/music.mp3` is the background music. The splash shows its download on a power-meter bar and waits for it to finish (at least 2 s, at most 30 s).
   - `sw.js` is the service worker. Bump its cache name when the cached files change. Pages are network-first and saved under their own address; other files are cache-first.
   - `manifest.webmanifest` is the app manifest.
-  - `icons/` holds the app icons.
+  - `icons/` holds the app icons. `icons/launch/` holds the iPhone launch images (the gold splash without its text). Re-make them with `npm run launch-images` after changing the splash background or chili.
+  - `tests/iphone-home-screen.js` checks the iPhone home-screen cases and the 44 px menu buttons. It runs on every pull request (`.github/workflows/iphone-checks.yml`), or locally with `npm install && npm test`.
   - `prototype-3d/` is a separate, playable 3D mockup (three.js from cdnjs). Nothing in the game links to it.
 - **Player's choices to keep:**
   - The Challenge results titles (什么!?, 你可以做得更好, 其实, 非常好) are intentional flavour; don't change them.
   - The splash waits for the music to fully load, rather than capping the wait.
   - The power meter uses the particle fire (`createMeterFire`) on both the splash and Challenge.
+  - At power-up the fire rises over "Power!"; keep it. The word punches in, beats and ripples instead.
+  - Buttons meet Apple's 44 pt minimum: icons, the gear, back buttons, Challenge and Relax are 44 px. Upgrades and the plate-screen back button keep their look, with an invisible 44 px tap area.
+  - A ranked Challenge run is saved straight away under the last name used (or "YOU"); typing a name renames it. The leaderboard has a two-tap Reset, which also clears the best Challenge score.
 - **Previews:** show a preview or mockup before making design changes to the game.
 - **Prototypes:** build experimental ideas as separate prototypes, not in the game.
 - **Merging:** ask before opening and merging a pull request.
@@ -34,13 +38,7 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
 
 ## Next to-dos
 
-1. **Bigger buttons:** several are below Apple's 44 pt minimum: menu icons and settings gear (40), Challenge and Relax (42), and the Relax "Upgrades" button (28). Not yet decided.
-2. **Fire over "Power!":** at power-up the fire rises over the label; ask whether to keep it below the text.
-3. **iPhone launch images:** remove the black or grey flash before the gold splash appears.
-4. **Automated test:** a small check that runs on each pull request, covering the iPhone home-screen cases.
-5. **Friends competition:** leaderboards are saved per phone only. Idea: a daily shared plate plus a shareable score card.
-6. **3D direction:** after playing `prototype-3d/`, decide between a full 3D rebuild and a middle route (2D with 3D-style flicks and shadows).
-7. **Smaller items:**
-   - Simplify saving a leaderboard name.
-   - Optionally reset the Challenge leaderboard.
-   - Add a simple, privacy-friendly visit count.
+1. **Friends competition:** leaderboards are saved per phone only. Idea: a daily shared plate plus a shareable score card.
+2. **3D direction:** after playing `prototype-3d/`, decide between a full 3D rebuild and a middle route (2D with 3D-style flicks and shadows).
+3. **Visit count:** a simple, privacy-friendly count (for example GoatCounter, which needs a sign-up and a change to the page's Content-Security-Policy). Skipped for now.
+4. **Smaller buttons still under 44 px** (not on the original list): the plate-screen arrows (32), the Music and Sound "On" toggles, and the plate dots.

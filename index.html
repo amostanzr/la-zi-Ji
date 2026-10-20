@@ -297,29 +297,35 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .chili.fresh{opacity:0;}
   /* tossed chilies leave the plate (which clips its contents) and tumble out over the table */
   .flight-layer{position:fixed; inset:0; z-index:1250; pointer-events:none; overflow:hidden;}
+  /* the flying chili's shadow on the plate and table: a soft ellipse, so the flight only ever
+     animates transform and opacity (cheap for the phone's graphics chip) */
+  .flight-shadow{position:absolute; left:0; top:0; width:34px; height:14px; border-radius:50%;
+    background:radial-gradient(closest-side, rgba(40,20,8,0.5), rgba(40,20,8,0));}
   .decor{pointer-events:none;}
 
   .chicken{pointer-events:none; filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
-  .chicken.free{pointer-events:auto; cursor:pointer; animation: readyPulse 2s ease-in-out infinite;}
+  .chicken.free{pointer-events:auto; cursor:pointer;}
   /* invisible halo: a free piece accepts taps a little outside its outline */
   .chicken.free::after{content:''; position:absolute; inset:-14%; border-radius:50%;}
-  .chicken.free.big{animation: readyPulseBig 1.7s ease-in-out infinite;}
-  @keyframes readyPulse{
-    0%,100%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
-    50%{filter: drop-shadow(0 0 6px rgba(255,205,110,0.85)) drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
+  /* the "ready" glow is a soft gold halo behind the piece that pulses its opacity and size.
+     (Pulsing a filter instead made the browser repaint the whole plate every frame, which
+     kept the phone busy and hot even when nobody was touching it.) */
+  .chicken.free::before{
+    content:''; position:absolute; inset:-30%; border-radius:50%; z-index:-1; pointer-events:none;
+    background:radial-gradient(closest-side, rgba(255,214,120,0.95), rgba(255,196,80,0.55) 55%, rgba(255,196,80,0) 100%);
+    opacity:0; will-change:opacity, transform;
+    animation: readyPulse 2s ease-in-out infinite;
   }
-  @keyframes readyPulseBig{
-    0%,100%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.45));}
-    50%{filter: drop-shadow(0 0 11px rgba(255,196,80,1)) drop-shadow(0 2px 2px rgba(60,40,20,0.45));}
+  .chicken.free.big::before{inset:-34%; animation-duration:1.7s;}
+  @keyframes readyPulse{
+    0%,100%{opacity:0.15; transform:scale(0.85);}
+    50%{opacity:0.9; transform:scale(1.05);}
   }
   .chicken.free:hover{transform: translate(-50%,-50%) rotate(var(--rot,0deg)) scale(1.09);}
-  @keyframes rainbowHue{
-    0%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4)) hue-rotate(0deg) saturate(2.4);}
-    100%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4)) hue-rotate(360deg) saturate(2.4);}
-  }
   @keyframes rainbowRingSpin{ to{ transform:rotate(360deg); } }
-  .chicken.rainbow{animation: rainbowHue 1.8s linear infinite, readyPulse 2s ease-in-out infinite;}
-  .chicken.rainbow.big{animation: rainbowHue 1.8s linear infinite, readyPulseBig 1.7s ease-in-out infinite;}
+  /* a rainbow piece keeps a fixed bright tint; its spinning rainbow ring is the moving part
+     (cycling the tint through a filter repainted the whole plate every frame) */
+  .chicken.rainbow{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4)) saturate(1.8) brightness(1.08);}
   .chicken.rainbow::before{
     content:''; position:absolute; inset:-28%; border-radius:50%; z-index:-1; pointer-events:none;
     background:conic-gradient(from 0deg, #ff5252, #ffca28, #ffee58, #66bb6a, #42a5f5, #ab47bc, #ff5252);
@@ -779,8 +785,8 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     .splash-chili{animation:none;}
     .power-fill::after, .power-fill.hot, .power-fill.active{animation:none;}
     .power-stat .label.active, .power-stat .label.active .pw{animation:none;}
-    .chicken.free, .chicken.free.big{animation:none;}
-    .chicken.rainbow, .chicken.rainbow.big, .chicken.rainbow::before{animation:none;}
+    .chicken.free::before{animation:none; opacity:0.7; transform:none;}
+    .chicken.rainbow::before{animation:none;}
     #zen-btn, #challenge-btn, .chip i, .steam, .screen .cn-title .hz, #settings-btn.nudge{animation:none;}
     .hud-icon-btn svg{transition:none;}
     .countdown-number{animation:none;}
@@ -2364,26 +2370,44 @@ document.addEventListener('touchmove', function(e){
     const spin = (Math.random() < 0.5 ? -1 : 1) * (220 + Math.random() * 260);
     const flip = Math.random() < 0.5 ? 360 : -360, tilt = (Math.random() - 0.5) * 0.8;   // end over end, on a slightly tilted axis
     const lift = 34 + Math.min(56, L * 0.22);
+    // centre with pixel offsets: a percentage translate keeps the animation off the graphics chip
+    const hw = (parseFloat(el.style.width) || r.width) / 2, hh = (parseFloat(el.style.height) || r.height) / 2;
     const at = (f, up, scale, f2, turn) =>
-      `translate(-50%,-50%) translate(${(ux * L * f).toFixed(1)}px, ${(uy * L * f - up).toFixed(1)}px) perspective(600px) ` +
+      `translate(${(sx - hw).toFixed(1)}px,${(sy - hh).toFixed(1)}px) translate(${(ux * L * f).toFixed(1)}px, ${(uy * L * f - up).toFixed(1)}px) perspective(600px) ` +
       `rotate(${(rot + spin * turn).toFixed(1)}deg) rotate3d(${tilt.toFixed(2)}, 1, 0, ${flip * f2}deg) scale(${scale})`;
-    const shadow = (x, y, blur, a) => `drop-shadow(${x.toFixed(1)}px ${y.toFixed(1)}px ${blur}px rgba(40,20,8,${a}))`;
+    // the shadow stays on the ground under the chili: it shrinks and fades while the chili is high
+    const ground = (f, scale, a) => ({ transform:`translate(${(sx - 17 + ux * L * f).toFixed(1)}px, ${(sy - 3 + uy * L * f).toFixed(1)}px) scale(${scale})`, opacity:a });
 
     el.style.transition = 'none';
-    el.style.left = sx + 'px'; el.style.top = sy + 'px';
+    el.style.left = '0px'; el.style.top = '0px';
     el.style.opacity = '1';
-    flightLayer.appendChild(el);
+    const shade = document.createElement('div');
+    shade.className = 'flight-shadow';
+    flightLayer.append(shade, el);
 
-    const FLY = 780;
+    // one animation per element (flight, rest on the table, fade), so each runs wholly on the graphics chip
+    const FLY = 780, REST = 450, FADE = 400, TOTAL = FLY + REST + FADE, k = FLY / TOTAL;
+    const up = 'cubic-bezier(.25,.7,.45,1)', down = 'cubic-bezier(.55,0,.85,.55)';
+    const landed = at(1.1, 0, 1, 1, 1.05);
     el.animate([
-      { offset:0,    transform:at(0, 0, 1, 0, 0),             filter:shadow(0, 2, 2, 0.35), easing:'cubic-bezier(.25,.7,.45,1)' },
-      { offset:0.45, transform:at(0.55, lift, 1.38, 0.6, 0.6), filter:shadow(ux * 8, lift * 0.55, 9, 0.22), easing:'cubic-bezier(.55,0,.85,.55)' },
-      { offset:0.78, transform:at(1, 0, 1, 1, 1),             filter:shadow(0, 3, 3, 0.45), easing:'ease-out' },
-      { offset:0.89, transform:at(1.06, 7, 1.05, 1, 1.03),     filter:shadow(1, 6, 4, 0.38), easing:'ease-in' },
-      { offset:1,    transform:at(1.1, 0, 1, 1, 1.05),         filter:shadow(0, 3, 3, 0.45) }
-    ], { duration:FLY, fill:'forwards' });
-    el.animate([{ opacity:1 }, { opacity:0 }], { duration:400, delay:FLY + 450, fill:'forwards' })
-      .onfinish = () => el.remove();
+      { offset:0,        transform:at(0, 0, 1, 0, 0),              opacity:1, easing:up },
+      { offset:0.45 * k, transform:at(0.55, lift, 1.38, 0.6, 0.6), opacity:1, easing:down },
+      { offset:0.78 * k, transform:at(1, 0, 1, 1, 1),              opacity:1, easing:'ease-out' },
+      { offset:0.89 * k, transform:at(1.06, 7, 1.05, 1, 1.03),     opacity:1, easing:'ease-in' },
+      { offset:k,        transform:landed, opacity:1 },
+      { offset:(FLY + REST) / TOTAL, transform:landed, opacity:1 },
+      { offset:1,        transform:landed, opacity:0 }
+    ], { duration:TOTAL, fill:'forwards' }).onfinish = () => { el.remove(); shade.remove(); };
+    const rest = ground(1.1, 1, 0.75);
+    shade.animate([
+      { offset:0,        ...ground(0, 1, 0.7),        easing:up },
+      { offset:0.45 * k, ...ground(0.55, 0.55, 0.25), easing:down },
+      { offset:0.78 * k, ...ground(1, 1, 0.75),       easing:'ease-out' },
+      { offset:0.89 * k, ...ground(1.06, 0.85, 0.6),  easing:'ease-in' },
+      { offset:k,        ...rest },
+      { offset:(FLY + REST) / TOTAL, ...rest },
+      { offset:1,        transform:rest.transform, opacity:0 }
+    ], { duration:TOTAL, fill:'forwards' });
     return true;
   }
 

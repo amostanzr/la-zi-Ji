@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2E1A0E">
+<title>辣子鸡 in 3D</title>
+<style>
+  /* Layout: one full-screen 3D table scene, with the game's HUD floating on top and a small view switcher at the bottom. */
+  :root{
+    --wood:#5A3620; --gold:#EFC169; --gold-deep:#C98E2E; --porcelain:#F4F1E6; --ink:#2A1709;
+    --glass:rgba(28,19,13,0.72); --line:rgba(239,193,105,0.38); --muted:rgba(244,241,230,0.7);
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    color-scheme:dark;
+  }
+  html, body{height:100%;}
+  body{margin:0; background:var(--wood); color:var(--porcelain); font-family:var(--font); overflow:hidden; touch-action:none; -webkit-user-select:none; user-select:none;}
+  #scene{position:fixed; inset:0; width:100%; height:100%; display:block;}
+  .hud{position:fixed; left:0; right:0; top:0; padding:calc(env(safe-area-inset-top, 0px) + 14px) 18px 0; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; pointer-events:none;}
+  .stat{display:flex; flex-direction:column; gap:2px; text-shadow:0 1px 3px rgba(0,0,0,0.6);}
+  .stat .l{font-size:12px; letter-spacing:.08em; color:var(--muted);}
+  .stat .v{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .badge{pointer-events:auto; text-decoration:none; display:inline-block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--gold); background:var(--glass); border:1px solid var(--line); border-radius:999px; padding:5px 10px; margin-top:4px; text-align:right; max-width:58vw;}
+  .dock{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom, 0px) + 16px); display:flex; flex-direction:column; align-items:center; gap:8px; width:min(440px, calc(100% - 32px));}
+  .tip{font-size:12.5px; color:var(--porcelain); background:var(--glass); border:1px solid var(--line); border-radius:12px; padding:7px 12px; text-align:center; line-height:1.4;}
+  .seg{display:flex; width:100%; background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:4px; gap:4px;}
+  .seg button{flex:1; min-height:44px; border:0; border-radius:10px; background:transparent; color:var(--muted); font:600 13px var(--font); cursor:pointer;}
+  .seg button[aria-pressed="true"]{background:linear-gradient(180deg, #FCE8AE, #E6B052 55%, #C9922F); color:var(--ink);}
+  .seg button:focus-visible{outline:2px solid var(--porcelain); outline-offset:2px;}
+  .float{position:fixed; pointer-events:none; font-weight:800; font-size:22px; color:var(--gold); text-shadow:0 2px 6px rgba(0,0,0,0.7); transform:translate(-50%,-50%); animation:floatUp 0.9s ease-out forwards;}
+  @keyframes floatUp{from{opacity:1; margin-top:0;} to{opacity:0; margin-top:-48px;}}
+  .loading{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--muted);}
+  .loading[hidden]{display:none;}
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="3D plate of la zi ji: flick chilies away and tap the chicken"></canvas>
+<div class="loading" id="loading">Setting the table…</div>
+
+<div class="hud">
+  <div style="display:flex; gap:22px;">
+    <div class="stat"><span class="l">Points</span><span class="v" id="points">0</span></div>
+    <div class="stat"><span class="l">Pieces</span><span class="v" id="pieces">0</span></div>
+  </div>
+  <a class="badge" href="../">3D mockup · back to the game</a>
+</div>
+
+<div class="dock">
+  <div class="tip" id="tip">Swipe a chili to flick it off. Tap chicken when it glows.</div>
+  <div class="seg" role="group" aria-label="Camera">
+    <button type="button" id="v-top" aria-pressed="false">Top-down</button>
+    <button type="button" id="v-tilt" aria-pressed="true">Tilted</button>
+    <button type="button" id="v-low" aria-pressed="false">Close-up</button>
+    <button type="button" id="refill">New plate</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  if(!window.THREE){ document.getElementById('loading').textContent = 'The 3D library could not load. Check your connection and reload.'; return; }
+  var canvas = document.getElementById('scene');
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.95;
+
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color('#2E1A0E').convertSRGBToLinear();
+  scene.fog = new THREE.Fog(scene.background.getHex(), 34, 80);
+  var camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+
+  // ---------- lights: warm restaurant key light, soft fill ----------
+  scene.add(new THREE.HemisphereLight(0xFFE9C4, 0x3A2010, 0.55));
+  var key = new THREE.DirectionalLight(0xFFE2B0, 1.35);
+  key.position.set(-6, 14, 7);
+  key.castShadow = true;
+  key.shadow.mapSize.set(1024, 1024);
+  key.shadow.camera.left = -8; key.shadow.camera.right = 8; key.shadow.camera.top = 8; key.shadow.camera.bottom = -8;
+  key.shadow.camera.near = 1; key.shadow.camera.far = 40;
+  key.shadow.bias = -0.0008; key.shadow.radius = 3;
+  scene.add(key);
+  var rim = new THREE.DirectionalLight(0xFF9A5A, 0.35);
+  rim.position.set(8, 5, -8);
+  scene.add(rim);
+
+  function canvasTex(w, h, draw){
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    var t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+    return t;
+  }
+
+  // ---------- table ----------
+  var woodTex = canvasTex(512, 512, function(g, w, h){
+    g.fillStyle = '#6E4425'; g.fillRect(0, 0, w, h);
+    for(var i = 0; i < 140; i++){
+      var x = Math.random() * w;
+      g.strokeStyle = 'rgba(' + (Math.random() < .5 ? '40,20,8,' : '255,220,170,') + (0.04 + Math.random() * 0.08) + ')';
+      g.lineWidth = 1 + Math.random() * 3;
+      g.beginPath(); g.moveTo(x, 0);
+      for(var y = 0; y <= h; y += 32) g.lineTo(x + Math.sin(y / h * Math.PI * 2 + i) * 3, y);
+      g.stroke();
+    }
+    g.fillStyle = 'rgba(20,10,4,0.35)'; for(var k = 1; k < 4; k++) g.fillRect(k * w / 4 - 1, 0, 2, h);   // plank seams
+  });
+  woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping; woodTex.repeat.set(8, 8);
+  var table = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.75 }));
+  table.rotation.x = -Math.PI / 2; table.receiveShadow = true;
+  scene.add(table);
+
+  // ---------- porcelain plate (lathe), blue-and-white rim ----------
+  var profile = [[0,0.16],[1.5,0.16],[3.0,0.16],[3.5,0.18],[3.85,0.27],[4.15,0.42],[4.5,0.56],[4.88,0.64],[5.05,0.62],[5.02,0.52],[4.6,0.36],[3.6,0.06],[3.4,0.0],[0,0]];
+  var plateTex = canvasTex(1024, 512, function(g, w, h){
+    g.fillStyle = '#F7F4EA'; g.fillRect(0, 0, w, h);
+    var vy = function(v){ return (1 - v) * h; };   // lathe v runs along the profile; flipY puts v=0 at the bottom
+    var n = profile.length - 1;
+    g.fillStyle = '#2F5C9E';
+    g.fillRect(0, vy(4.2 / n), w, 5);                 // inner line near the well
+    g.fillRect(0, vy(4.95 / n), w, 4);
+    g.fillRect(0, vy(7.6 / n), w, 6);                 // outer line near the lip
+    g.strokeStyle = '#2F5C9E'; g.lineWidth = 4;        // squiggle band, like the game's classic plate
+    g.beginPath();
+    var mid = vy(6.3 / n), amp = h * 0.018;
+    for(var x = 0; x <= w; x += 4) g.lineTo(x, mid + Math.sin(x / w * Math.PI * 2 * 36) * amp);
+    g.stroke();
+  });
+  var plate = new THREE.Mesh(
+    new THREE.LatheGeometry(profile.map(function(p){ return new THREE.Vector2(p[0], p[1]); }), 120),
+    new THREE.MeshStandardMaterial({ map: plateTex, roughness: 0.22, metalness: 0.0, side: THREE.DoubleSide })
+  );
+  plate.castShadow = true; plate.receiveShadow = true;
+  scene.add(plate);
+
+  // ---------- food ----------
+  function lin(hex){ return new THREE.Color(hex).convertSRGBToLinear(); }
+  function jitterColor(hex, dl){ var c = new THREE.Color(hex); var hsl = {}; c.getHSL(hsl); c.setHSL(hsl.h + (Math.random() - .5) * 0.02, hsl.s, Math.max(0, hsl.l + (Math.random() - .5) * dl)); return c.convertSRGBToLinear(); }
+
+  // dried chili pod: a lathe spindle, bent a little, with a green calyx and stem
+  var podGeo = (function(){
+    var pts = [[0,0],[0.09,0.05],[0.14,0.22],[0.155,0.55],[0.145,0.85],[0.12,1.05],[0.075,1.22],[0.025,1.33],[0,1.36]].map(function(p){ return new THREE.Vector2(p[0], p[1]); });
+    var geo = new THREE.LatheGeometry(pts, 14), pos = geo.attributes.position;
+    for(var i = 0; i < pos.count; i++){ var y = pos.getY(i); pos.setX(i, pos.getX(i) + 0.22 * Math.pow(y / 1.36, 2)); }
+    geo.computeVertexNormals();
+    return geo;
+  })();
+  var calyxGeo = new THREE.SphereGeometry(0.15, 12, 8); calyxGeo.scale(1, 0.5, 1);
+  var stemGeo = new THREE.CylinderGeometry(0.03, 0.035, 0.28, 6); stemGeo.translate(0, -0.14, 0);
+  var greenMat = new THREE.MeshStandardMaterial({ color: lin('#4F6E2A'), roughness: 0.6 });
+
+  // cut chili segment: an open tube with pale, seedy ends (like the game's chili pieces)
+  var segGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.55, 14, 1, true);
+  var capTex = canvasTex(64, 64, function(g, w, h){
+    g.fillStyle = '#7A140C'; g.beginPath(); g.arc(32, 32, 32, 0, 7); g.fill();
+    g.fillStyle = '#E9D29A'; g.beginPath(); g.arc(32, 32, 24, 0, 7); g.fill();
+    g.fillStyle = '#F7EBC4'; for(var i = 0; i < 9; i++){ g.beginPath(); g.arc(32 + Math.cos(i) * 12, 32 + Math.sin(i * 1.7) * 12, 3, 0, 7); g.fill(); }
+  });
+  var capGeo = new THREE.CircleGeometry(0.15, 14);
+  var capMat = new THREE.MeshStandardMaterial({ map: capTex, roughness: 0.7 });
+
+  var wrinkleTex = canvasTex(64, 256, function(g, w, h){
+    g.fillStyle = '#808080'; g.fillRect(0, 0, w, h);
+    for(var i = 0; i < 26; i++){
+      g.strokeStyle = Math.random() < .5 ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.3)'; g.lineWidth = 1 + Math.random() * 2;
+      var x = Math.random() * w; g.beginPath(); g.moveTo(x, 0);
+      for(var y = 0; y <= h; y += 16) g.lineTo(x + (Math.random() - .5) * 6, y);
+      g.stroke();
+    }
+  });
+  var crispTex = canvasTex(256, 128, function(g, w, h){
+    g.fillStyle = '#9A5A1E'; g.fillRect(0, 0, w, h);
+    for(var i = 0; i < 900; i++){
+      var r = 1 + Math.random() * 4;
+      g.fillStyle = Math.random() < .55 ? 'rgba(70,30,8,' + (0.2 + Math.random() * 0.4) + ')' : 'rgba(230,160,80,' + (0.2 + Math.random() * 0.4) + ')';
+      g.beginPath(); g.arc(Math.random() * w, Math.random() * h, r, 0, 7); g.fill();
+    }
+  });
+
+  // fried chicken lump: a noisy, squashed blob with a crispy, glossy coat
+  function chickenGeo(r){
+    var geo = new THREE.SphereGeometry(r, 26, 18), pos = geo.attributes.position, v = new THREE.Vector3();
+    var a = Math.random() * 6, b = Math.random() * 6;
+    for(var i = 0; i < pos.count; i++){
+      v.fromBufferAttribute(pos, i);
+      var n = 1 + 0.16 * Math.sin(v.x * 7 + a) * Math.cos(v.z * 6 + b) + 0.08 * Math.sin(v.y * 11 + a * 2);
+      v.multiplyScalar(n); v.y *= 0.72;
+      pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  var food = new THREE.Group(); scene.add(food);
+  var chilies = [], chickens = [], chiliMeshes = [], flying = [], popping = [];
+  var points = 0, pieces = 0;
+  var R = 3.75;   // radius of the pile
+
+  function mound(r){ return Math.max(0, 1 - (r / R) * (r / R)); }
+  function randomSpot(){ var r = R * Math.sqrt(Math.random()), a = Math.random() * Math.PI * 2; return { x: Math.cos(a) * r, z: Math.sin(a) * r, r: r }; }
+
+  function addChili(){
+    var s = randomSpot(), g = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color: jitterColor('#8A1810', 0.08), roughness: 0.3, metalness: 0.02, bumpMap: wrinkleTex, bumpScale: 0.025 });
+    if(Math.random() < 0.62){
+      var pod = new THREE.Mesh(podGeo, mat); pod.castShadow = true; pod.receiveShadow = true;
+      var calyx = new THREE.Mesh(calyxGeo, greenMat); calyx.castShadow = true;
+      var stem = new THREE.Mesh(stemGeo, greenMat); stem.rotation.z = 0.5;
+      g.add(pod, calyx, stem);
+      g.position.y = -0.68;   // centre the pod on the group
+      var holder = new THREE.Group(); holder.add(g); g = holder;
+      var sc = 0.75 + Math.random() * 0.45; g.scale.setScalar(sc);
+    } else {
+      var tube = new THREE.Mesh(segGeo, mat); tube.castShadow = true; tube.receiveShadow = true;
+      var c1 = new THREE.Mesh(capGeo, capMat), c2 = new THREE.Mesh(capGeo, capMat);
+      c1.position.y = 0.275; c1.rotation.x = -Math.PI / 2; c2.position.y = -0.275; c2.rotation.x = Math.PI / 2;
+      var inner = new THREE.Group(); inner.add(tube, c1, c2); g.add(inner);
+    }
+    // lie it down in a random direction, a little tilted, on the mound
+    g.rotation.set((Math.random() - .5) * 0.5, Math.random() * Math.PI * 2, Math.PI / 2 + (Math.random() - .5) * 0.5, 'YXZ');
+    g.position.set(s.x, 0.3 + Math.random() * 1.15 * mound(s.r) + 0.05, s.z);
+    g.userData = { kind: 'chili' };
+    g.traverse(function(o){ if(o.isMesh){ o.userData.root = g; chiliMeshes.push(o); } });
+    food.add(g); chilies.push(g);
+  }
+  function addChicken(){
+    var s = randomSpot(), r = 0.36 + Math.random() * 0.16;
+    var mat = new THREE.MeshStandardMaterial({ map: crispTex, color: jitterColor('#FFFFFF', 0.12), bumpMap: crispTex, bumpScale: 0.03, roughness: 0.38, metalness: 0.05, emissive: lin('#FFB347'), emissiveIntensity: 0 });
+    var m = new THREE.Mesh(chickenGeo(r), mat);
+    m.castShadow = true; m.receiveShadow = true;
+    m.position.set(s.x, 0.16 + r * 0.6 + Math.random() * 0.55 * mound(s.r), s.z);
+    m.rotation.y = Math.random() * 6;
+    m.userData = { kind: 'chicken', r: r, free: false, root: null, big: r > 0.45 };
+    m.userData.root = m;
+    food.add(m); chickens.push(m);
+  }
+  function addGarnish(){
+    var nut = new THREE.MeshStandardMaterial({ color: lin('#C99A60'), roughness: 0.7 });
+    var scallion = new THREE.MeshStandardMaterial({ color: lin('#6E9C3E'), roughness: 0.5 });
+    var pepper = new THREE.MeshStandardMaterial({ color: lin('#4A1A10'), roughness: 0.8 });
+    for(var i = 0; i < 34; i++){
+      var s = randomSpot(), y = 0.2 + Math.random() * 1.1 * mound(s.r), m;
+      var t = i % 3;
+      if(t === 0){ m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), nut); m.scale.set(1.4, 0.8, 1); }
+      else if(t === 1){ m = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.045, 8, 16), scallion); m.rotation.x = Math.random() * 3; }
+      else { m = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), pepper); }
+      m.position.set(s.x, y, s.z); m.castShadow = true;
+      m.userData = { kind: 'garnish' };
+      food.add(m);
+    }
+  }
+
+  function buildPlate(){
+    flying.forEach(function(f){ food.remove(f.obj); }); popping.forEach(function(p){ food.remove(p.obj); });
+    while(food.children.length) food.remove(food.children[0]);
+    chilies = []; chickens = []; chiliMeshes = []; flying = []; popping = [];
+    for(var i = 0; i < 26; i++) addChicken();
+    for(var j = 0; j < 230; j++) addChili();
+    addGarnish();
+    updateFree();
+  }
+
+  // ---------- which chicken is free: cast short rays up through the pile ----------
+  var ray = new THREE.Raycaster(), up = new THREE.Vector3(0, 1, 0);
+  function updateFree(){
+    chickens.forEach(function(c){
+      if(c.userData.picked) return;
+      var hidden = 0, total = 0, r = c.userData.r * 0.7;
+      for(var i = 0; i < 7; i++){
+        var a = i / 7 * Math.PI * 2, rr = i === 0 ? 0 : r;
+        var o = new THREE.Vector3(c.position.x + Math.cos(a) * rr, c.position.y + 0.05, c.position.z + Math.sin(a) * rr);
+        ray.set(o, up); ray.far = 3;
+        total++;
+        if(ray.intersectObjects(chiliMeshes, false).length) hidden++;
+      }
+      c.userData.free = hidden / total <= 0.3;
+    });
+  }
+
+  // ---------- camera views ----------
+  var views = {};
+  function computeViews(){
+    var aspect = canvas.clientWidth / canvas.clientHeight;
+    var vHalf = THREE.MathUtils.degToRad(camera.fov / 2), hHalf = Math.atan(Math.tan(vHalf) * aspect);
+    var d = 5.5 / Math.tan(Math.min(vHalf, hHalf)) * 1.06;   // whole plate across the narrower side
+    views.top = { pos: new THREE.Vector3(0, d, 0.01), look: new THREE.Vector3(0, 0, 0.3) };
+    views.tilt = { pos: new THREE.Vector3(0, d * 0.84, d * 0.5), look: new THREE.Vector3(0, 0, 0.3) };
+    var lowK = aspect < 1 ? 1 : 1.45;   // landscape screens need a little more room
+    views.low = { pos: new THREE.Vector3(0, d * 0.3 * lowK, d * 0.42 * lowK), look: new THREE.Vector3(0, 0.3, 0.6) };
+  }
+  var camFrom = null, camTo = null, camT = 1, lookNow = new THREE.Vector3();
+  var currentView = 'tilt';
+  function goView(name, instant){
+    currentView = name;
+    ['top','tilt','low'].forEach(function(k){ document.getElementById('v-' + k).setAttribute('aria-pressed', k === name); });
+    camFrom = { pos: camera.position.clone(), look: lookNow.clone() }; camTo = views[name];
+    camT = instant ? 1 : 0;
+    if(instant){ camera.position.copy(camTo.pos); lookNow.copy(camTo.look); camera.lookAt(lookNow); }
+  }
+  ['top','tilt','low'].forEach(function(k){ document.getElementById('v-' + k).addEventListener('click', function(){ goView(k); }); });
+  document.getElementById('refill').addEventListener('click', buildPlate);
+
+  function resize(){
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    computeViews(); goView(currentView, true);
+  }
+  window.addEventListener('resize', resize);
+
+  // ---------- input: swipe a chili to flick it, tap a glowing chicken to eat it ----------
+  var pointer = new THREE.Vector2(), picker = new THREE.Raycaster(), down = null;
+  function hitAt(e){
+    var r = canvas.getBoundingClientRect();
+    pointer.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    picker.setFromCamera(pointer, camera);
+    var targets = chiliMeshes.concat(chickens.filter(function(c){ return !c.userData.picked; }));
+    var hits = picker.intersectObjects(targets, false);
+    return hits.length ? hits[0].object.userData.root : null;
+  }
+  canvas.addEventListener('pointerdown', function(e){ down = { x: e.clientX, y: e.clientY, t: performance.now(), target: hitAt(e) }; });
+  canvas.addEventListener('pointerup', function(e){
+    if(!down) return;
+    var target = down.target, dx = e.clientX - down.x, dy = e.clientY - down.y;
+    if(target && target.userData.kind === 'chili' && !target.userData.gone){
+      // turn the swipe into a direction across the table, as seen from the camera
+      var dir;
+      if(dx * dx + dy * dy > 64){
+        var right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0); right.y = 0; right.normalize();
+        var fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0;
+        if(fwd.lengthSq() < 1e-4) fwd.set(0, 0, -1); fwd.normalize();
+        dir = right.multiplyScalar(dx).add(fwd.multiplyScalar(-dy)).normalize();
+      } else {
+        dir = new THREE.Vector3(target.position.x, 0, target.position.z).normalize();
+        if(!isFinite(dir.x)) dir.set(1, 0, 0);
+      }
+      flick(target, dir);
+    } else if(target && target.userData.kind === 'chicken'){
+      if(target.userData.free) pick(target, e.clientX, e.clientY);
+      else nudge(target);
+    }
+    down = null;
+  });
+
+  function flick(chili, dir){
+    chili.userData.gone = true;
+    chiliMeshes = chiliMeshes.filter(function(m){ return m.userData.root !== chili; });
+    var speed = 9 + Math.random() * 3;
+    flying.push({ obj: chili, v: new THREE.Vector3(dir.x * speed, 4.5 + Math.random() * 2, dir.z * speed), spin: new THREE.Vector3(Math.random() * 10 - 5, Math.random() * 10 - 5, Math.random() * 10 - 5), t: 0 });
+    updateFree();
+  }
+  function pick(c, sx, sy){
+    c.userData.picked = true;
+    var value = c.userData.big ? 1 : 2;
+    points += value; pieces += 1;
+    document.getElementById('points').textContent = points;
+    document.getElementById('pieces').textContent = pieces;
+    popping.push({ obj: c, t: 0, y0: c.position.y });
+    var f = document.createElement('div'); f.className = 'float'; f.textContent = '+' + value;
+    f.style.left = sx + 'px'; f.style.top = sy + 'px'; document.body.appendChild(f);
+    setTimeout(function(){ f.remove(); }, 950);
+    if(chickens.every(function(k){ return k.userData.picked; })) setTimeout(buildPlate, 900);
+  }
+  function nudge(c){ c.userData.nudge = 0.25; }
+
+  // ---------- loop ----------
+  var clock = new THREE.Clock();
+  function frame(){
+    var raw = clock.getDelta(), dt = Math.min(0.05, raw), t = clock.elapsedTime;
+    if(camT < 1){
+      camT = Math.min(1, camT + Math.min(0.2, raw) / 0.8);
+      var e = camT < .5 ? 2 * camT * camT : 1 - Math.pow(-2 * camT + 2, 2) / 2;
+      camera.position.lerpVectors(camFrom.pos, camTo.pos, e);
+      lookNow.lerpVectors(camFrom.look, camTo.look, e);
+      camera.lookAt(lookNow);
+    }
+    for(var i = flying.length - 1; i >= 0; i--){
+      var f = flying[i]; f.t += dt;
+      f.v.y -= 22 * dt;
+      f.obj.position.addScaledVector(f.v, dt);
+      f.obj.rotation.x += f.spin.x * dt; f.obj.rotation.y += f.spin.y * dt; f.obj.rotation.z += f.spin.z * dt;
+      if(f.obj.position.y < 0.1 && f.t > 0.2){ f.obj.position.y = 0.1; f.v.y *= -0.3; f.v.x *= 0.6; f.v.z *= 0.6; }
+      if(f.t > 1.4){ food.remove(f.obj); flying.splice(i, 1); }
+    }
+    for(var j = popping.length - 1; j >= 0; j--){
+      var p = popping[j]; p.t += dt;
+      var k = p.t / 0.45;
+      p.obj.position.y = p.y0 + Math.sin(Math.min(1, k) * Math.PI * 0.5) * 1.6;
+      p.obj.scale.setScalar(Math.max(0.01, 1 - k * k));
+      if(k >= 1){ food.remove(p.obj); popping.splice(j, 1); }
+    }
+    chickens.forEach(function(c){
+      if(c.userData.picked) return;
+      var glow = c.userData.free ? 0.28 + 0.2 * Math.sin(t * 5 + c.position.x) : 0;
+      c.material.emissiveIntensity = glow;
+      if(c.userData.nudge > 0){ c.userData.nudge -= dt; c.rotation.z = Math.sin(c.userData.nudge * 60) * 0.08; } else c.rotation.z = 0;
+    });
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  buildPlate();
+  resize();
+  document.getElementById('loading').hidden = true;
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

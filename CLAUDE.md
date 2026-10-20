@@ -29,7 +29,7 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
   - A ranked Challenge run is saved straight away under the last name used (or "YOU"); typing a name renames it. The leaderboard has a two-tap Reset, which also clears the best Challenge score.
   - Tossed chilies tumble off the plate (`tumbleOffPlate`): they arc up, flip end over end, land on the table with a small bounce, rest, then fade. The player approved the speed and timing; no landing sound.
 - **Performance (hot phone, then a laggy look):** the plate holds about 400 pieces, so per-frame work on it is expensive, and iPhone Safari is stricter than desktop Chrome.
-  - Nothing inside the plate's `.layer` animates continuously. Free chicken have a steady gold glow (set once when freed), and rainbow pieces have a steady tint and ring.
+  - Nothing inside the plate's `.layer` animates continuously. Free chicken have a steady gold glow (set once when freed), and rainbow pieces keep their own colour (a little brighter, warm gold rim) with a soft, still rainbow halo behind.
   - Don't add `will-change` or running animations to pieces inside the pile: Safari then splits every overlapping piece above them into its own layer, which made the game lag badly. The one exception is the dragged chili, which is the topmost piece while held.
   - Never animate `filter` or `box-shadow`. Set a filter once if needed, and animate only `transform` and `opacity`.
   - Tossed chilies fly in `.flight-layer`, above the plate, with a fixed drop-shadow.

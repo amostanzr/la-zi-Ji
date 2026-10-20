@@ -144,7 +144,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .stat .value{font-size:22px; line-height:1.05; font-weight:700; font-variant-numeric:tabular-nums; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:var(--porcelain);}
   .hud-actions{display:flex; align-items:center; gap:8px;}
   .hud-icon-btn{
-    width:44px; height:44px; border-radius:50%; padding:0; flex:0 0 auto;
+    width:40px; height:40px; border-radius:50%; padding:0; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
     color:rgba(244,241,230,0.92); cursor:pointer;
     background:rgba(28,19,13,0.42); border:1px solid rgba(244,241,230,0.2);
@@ -503,7 +503,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   #end-screen .leaderboard-name-input{font-size:16px; letter-spacing:4px; width:88px; padding:6px 0 6px 4px;}
   .end-actions{display:flex; align-items:center; justify-content:center; gap:10px; margin-top:4px;}
   .end-actions .btn{margin-top:0; height:36px; padding-top:0; padding-bottom:0;}
-  .end-actions .btn.icon-btn{width:44px; height:44px; padding:0;}
+  .end-actions .btn.icon-btn{width:44px; height:40px; padding:0;}
   .end-actions .btn.icon-btn.hidden{display:none;}
   .skin-progress-wrap.owned{justify-content:center;}
   .skin-progress-wrap.owned .skin-progress-track{display:none;}
@@ -570,7 +570,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .btn.small{font-size:12.5px; padding:6px 15px; margin-top:0;}
   .btn.tiny{font-size:11.5px; padding:4px 10px; margin-top:0;}
   .btn.tiny.off{opacity:0.5;}
-  .btn.icon-btn{width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1;}
+  .btn.icon-btn{width:40px; height:40px; padding:0; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1;}
   .info-steps{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:11px;}
   .info-steps li{display:flex; align-items:center; gap:10px;}
   .info-step-icon{
@@ -599,8 +599,11 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .btn:disabled{opacity:0.4; cursor:default;}
   .btn:disabled:hover{filter:none;}
   .btn:disabled:active{transform:none; box-shadow:var(--btn-gold-shadow);}
-  #zen-btn, #challenge-btn{animation: playGlow 2.6s ease-in-out infinite; padding-top:12px; padding-bottom:12px;}   /* 44px tall */
-  /* small buttons that keep their look but get a 44px tap area (Apple's minimum) */
+  #zen-btn, #challenge-btn{animation: playGlow 2.6s ease-in-out infinite;}
+  /* buttons keep their original size but answer taps across at least 44px (Apple's minimum) */
+  .hud-icon-btn, .btn.icon-btn, #zen-btn, #challenge-btn{position:relative;}
+  .hud-icon-btn::before, .btn.icon-btn::before, #zen-btn::before, #challenge-btn::before{
+    content:''; position:absolute; left:50%; top:50%; width:max(100%, 44px); height:max(100%, 44px); transform:translate(-50%,-50%);}
   #upgrades-btn, #skin-back-btn{position:relative;}
   #upgrades-btn::after, #skin-back-btn::after{content:''; position:absolute; left:50%; top:50%; width:max(100%, 44px); height:44px; transform:translate(-50%,-50%);}
   #zen-btn:hover, #challenge-btn:hover{animation-play-state:paused;}

@@ -18,14 +18,14 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
   - `sw.js` is the service worker. Bump its cache name when the cached files change. Pages are network-first and saved under their own address; other files are cache-first.
   - `manifest.webmanifest` is the app manifest.
   - `icons/` holds the app icons. `icons/launch/` holds the iPhone launch images (the gold splash without its text). Re-make them with `npm run launch-images` after changing the splash background or chili.
-  - `tests/iphone-home-screen.js` checks the iPhone home-screen cases and the 44 px menu buttons. It runs on every pull request (`.github/workflows/iphone-checks.yml`), or locally with `npm install && npm test`.
+  - `tests/iphone-home-screen.js` checks the iPhone home-screen cases and that the menu buttons answer taps across 44 px. It runs on every pull request (`.github/workflows/iphone-checks.yml`), or locally with `npm install && npm test`.
   - `prototype-3d/` is a separate, playable 3D mockup (three.js from cdnjs). Nothing in the game links to it.
 - **Player's choices to keep:**
   - The Challenge results titles (什么!?, 你可以做得更好, 其实, 非常好) are intentional flavour; don't change them.
   - The splash waits for the music to fully load, rather than capping the wait.
   - The power meter uses the particle fire (`createMeterFire`) on both the splash and Challenge.
   - At power-up the fire rises over "Power!"; keep it. The word punches in, beats and ripples instead.
-  - Buttons meet Apple's 44 pt minimum: icons, the gear, back buttons, Challenge and Relax are 44 px. Upgrades and the plate-screen back button keep their look, with an invisible 44 px tap area.
+  - Buttons keep their original drawn sizes (icons and the gear 40 px, Challenge and Relax 42 px tall); the player found 44 px too big. Each still answers taps across 44 px through an invisible `::before` tap area, as do Upgrades and the plate-screen back button (`::after`).
   - A ranked Challenge run is saved straight away under the last name used (or "YOU"); typing a name renames it. The leaderboard has a two-tap Reset, which also clears the best Challenge score.
   - Tossed chilies tumble off the plate (`tumbleOffPlate`): they arc up, flip end over end, land on the table with a small bounce, rest, then fade. The player approved the speed and timing; no landing sound.
 - **Performance (hot phone, then a laggy look):** the plate holds about 400 pieces, so per-frame work on it is expensive, and iPhone Safari is stricter than desktop Chrome.

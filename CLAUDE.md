@@ -27,6 +27,11 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
   - At power-up the fire rises over "Power!"; keep it. The word punches in, beats and ripples instead.
   - Buttons meet Apple's 44 pt minimum: icons, the gear, back buttons, Challenge and Relax are 44 px. Upgrades and the plate-screen back button keep their look, with an invisible 44 px tap area.
   - A ranked Challenge run is saved straight away under the last name used (or "YOU"); typing a name renames it. The leaderboard has a two-tap Reset, which also clears the best Challenge score.
+  - Tossed chilies tumble off the plate (`tumbleOffPlate`): they arc up, flip end over end, land on the table with a small bounce, rest, then fade. The player approved the speed and timing; no landing sound.
+- **Performance (the phone got hot):** the plate holds about 400 pieces, so anything that makes the browser repaint or re-layerize it every frame is expensive.
+  - Never animate `filter` (or `box-shadow`) on pieces; animate only `transform` and `opacity`, ideally on a pseudo-element or separate element.
+  - Use pixel offsets, not percentages, in animated transforms, and keep each element to one animation, so the animation runs on the graphics chip.
+  - Measure with the Chromium trace: count `Layerize` frames and check `Animation` events for `compositeFailed`.
 - **Previews:** show a preview or mockup before making design changes to the game.
 - **Prototypes:** build experimental ideas as separate prototypes, not in the game.
 - **Merging:** ask before opening and merging a pull request.
@@ -38,7 +43,8 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
 
 ## Next to-dos
 
+0. **In progress, not merged** (branch `claude/gifted-planck-x80p4w`): the tumbling toss plus the performance fixes. The free-chicken glow is now a pulsing gold halo, and rainbow pieces have a fixed tint with a spinning ring. The player still finds the game **looks laggy, like a low frame rate**: investigate and fix that next, then get approval and merge.
 1. **Friends competition:** leaderboards are saved per phone only. Idea: a daily shared plate plus a shareable score card.
-2. **3D direction:** after playing `prototype-3d/`, decide between a full 3D rebuild and a middle route (2D with 3D-style flicks and shadows).
+2. **3D direction:** the middle route (2D with the 3D-style tumble) is being tried first, see item 0. The full 3D rebuild (`prototype-3d/`) is on hold.
 3. **Visit count:** a simple, privacy-friendly count (for example GoatCounter, which needs a sign-up and a change to the page's Content-Security-Policy). Skipped for now.
 4. **Smaller buttons still under 44 px** (not on the original list): the plate-screen arrows (32), the Music and Sound "On" toggles, and the plate dots.

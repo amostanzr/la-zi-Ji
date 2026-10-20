@@ -281,6 +281,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     animation: steamRise 6.5s ease-in infinite;
     pointer-events:none; z-index:900;
   }
+  .plate.in-game .steam{display:none;}   /* hidden under the pile anyway; saves the phone animating it all game */
   @keyframes steamRise{
     0%{transform:translateY(0) scale(0.75); opacity:0;}
     18%{opacity:0.65;}
@@ -2434,6 +2435,15 @@ document.addEventListener('touchmove', function(e){
     const ctx = canvas.getContext('2d');
     const parts = [];
     let level = 0, heat = '', running = false, last = 0, carry = 0, W = 0, H = 0;
+    // each spark is a soft glow; draw the three colours once and stamp them, rather than
+    // building a new gradient for every spark on every frame
+    const sprites = ['255,236,170', '255,160,60', '214,60,30'].map(c => {
+      const s = document.createElement('canvas'); s.width = s.height = 64;
+      const g = s.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(' + c + ',1)'); grad.addColorStop(1, 'rgba(' + c + ',0)');
+      g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+      return s;
+    });
 
     function measure(){
       // layout size, so a scaled-down HUD still draws crisply
@@ -2447,6 +2457,8 @@ document.addEventListener('touchmove', function(e){
       if(!canvas.isConnected || (!heat && !parts.length) || !canvas.offsetParent){
         running = false; parts.length = 0; ctx.clearRect(0, 0, W, H); return;
       }
+      // 60 updates a second is plenty for fire; ProMotion iPhones would otherwise run it at 120
+      if(now - last < 15){ requestAnimationFrame(frame); return; }
       measure();
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const filled = Math.max(0, (W - TRACK_LEFT - TRACK_PAD) * level / 100);
@@ -2466,14 +2478,10 @@ document.addEventListener('touchmove', function(e){
         p.x += (p.vx + Math.sin(now / 160 + p.seed) * 6) * dt;
         p.y += p.vy * dt;
         const r = p.r * (1 - k * 0.7) * 2.2;
-        const c = k < 0.25 ? '255,236,170' : k < 0.55 ? '255,160,60' : '214,60,30';   // cools as it rises
-        const a = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * 0.8;
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-        g.addColorStop(0, 'rgba(' + c + ',' + a + ')');
-        g.addColorStop(1, 'rgba(' + c + ',0)');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * 0.8;
+        ctx.drawImage(sprites[k < 0.25 ? 0 : k < 0.55 ? 1 : 2], p.x - r, p.y - r, r * 2, r * 2);   // cools as it rises
       }
+      ctx.globalAlpha = 1;
       requestAnimationFrame(frame);
     }
     return {
@@ -2754,6 +2762,7 @@ document.addEventListener('touchmove', function(e){
   function setMenuChrome(hidden){
     els['hud-bar'].classList.toggle('menu-hidden', hidden);
     els['subbar'].classList.toggle('menu-hidden', hidden);
+    els.plate.classList.toggle('in-game', !hidden);   // steam only rises over the menu plate
     if(els['table-deco']) requestAnimationFrame(layoutTableScene);
   }
 

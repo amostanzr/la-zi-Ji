@@ -2,7 +2,7 @@
 //   1. the viewport is one status bar short at launch, but the game still fills the whole screen;
 //   2. the page lays out 980 px wide until the viewport meta is parsed, so nothing may measure before it;
 //   3. the on-screen keyboard shrinks the viewport, and the plate must not shrink or stay shifted after.
-// Plus: the main menu buttons meet Apple's 44 pt minimum. Run with `npm test`; exits 1 on any failure.
+// Plus: the main menu buttons answer taps across Apple's 44 pt minimum. Run with `npm test`; exits 1 on any failure.
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
@@ -85,11 +85,16 @@ function check(name, ok, detail){
       const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
       check('no sideways scrolling', scrollW <= SCREEN.width, `${scrollW}px wide`);
 
+      // a button may look smaller than 44 px, as long as taps across 44 px reach it
       const small = await page.evaluate(() => ['challenge-btn', 'zen-btn', 'skin-btn', 'leaderboard-btn', 'menu-sound-btn'].map(id => {
-        const r = document.getElementById(id).getBoundingClientRect();
-        return { id, w: Math.round(r.width), h: Math.round(r.height) };
+        const el = document.getElementById(id), r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2, reach = 21.5;
+        const hits = (x, y) => { const h = document.elementFromPoint(x, y); return !!h && (h === el || el.contains(h)); };
+        const w = hits(cx - reach, cy) && hits(cx + reach, cy) ? 44 : Math.round(r.width);
+        const h = hits(cx, cy - reach) && hits(cx, cy + reach) ? 44 : Math.round(r.height);
+        return { id, w: Math.max(w, Math.round(r.width)), h: Math.max(h, Math.round(r.height)) };
       }).filter(b => b.w < 44 || b.h < 44));
-      check('menu buttons are at least 44 px', small.length === 0, small.map(b => `${b.id} ${b.w}x${b.h}`).join(', '));
+      check('menu buttons answer taps across at least 44 px', small.length === 0, small.map(b => `${b.id} ${b.w}x${b.h}`).join(', '));
       await page.context().close();
     }
 

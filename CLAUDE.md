@@ -18,15 +18,22 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
   - `sw.js` is the service worker. Bump its cache name when the cached files change. Pages are network-first and saved under their own address; other files are cache-first.
   - `manifest.webmanifest` is the app manifest.
   - `icons/` holds the app icons. `icons/launch/` holds the iPhone launch images (the gold splash without its text). Re-make them with `npm run launch-images` after changing the splash background or chili.
-  - `tests/iphone-home-screen.js` checks the iPhone home-screen cases and the 44 px menu buttons. It runs on every pull request (`.github/workflows/iphone-checks.yml`), or locally with `npm install && npm test`.
+  - `tests/iphone-home-screen.js` checks the iPhone home-screen cases and that the menu buttons answer taps across 44 px. It runs on every pull request (`.github/workflows/iphone-checks.yml`), or locally with `npm install && npm test`.
   - `prototype-3d/` is a separate, playable 3D mockup (three.js from cdnjs). Nothing in the game links to it.
 - **Player's choices to keep:**
   - The Challenge results titles (什么!?, 你可以做得更好, 其实, 非常好) are intentional flavour; don't change them.
   - The splash waits for the music to fully load, rather than capping the wait.
   - The power meter uses the particle fire (`createMeterFire`) on both the splash and Challenge.
   - At power-up the fire rises over "Power!"; keep it. The word punches in, beats and ripples instead.
-  - Buttons meet Apple's 44 pt minimum: icons, the gear, back buttons, Challenge and Relax are 44 px. Upgrades and the plate-screen back button keep their look, with an invisible 44 px tap area.
+  - Buttons keep their original drawn sizes (icons and the gear 40 px, Challenge and Relax 42 px tall); the player found 44 px too big. Each still answers taps across 44 px through an invisible `::before` tap area, as do Upgrades and the plate-screen back button (`::after`).
   - A ranked Challenge run is saved straight away under the last name used (or "YOU"); typing a name renames it. The leaderboard has a two-tap Reset, which also clears the best Challenge score.
+  - Tossed chilies tumble off the plate (`tumbleOffPlate`): they arc up, flip end over end, land on the table with a small bounce, rest, then fade. The player approved the speed and timing; no landing sound.
+- **Performance (hot phone, then a laggy look):** the plate holds about 400 pieces, so per-frame work on it is expensive, and iPhone Safari is stricter than desktop Chrome.
+  - Nothing inside the plate's `.layer` animates continuously. Free chicken have a steady gold glow (set once when freed), and rainbow pieces keep their own colour (a little brighter, warm gold rim) with a soft, still rainbow halo behind.
+  - Don't add `will-change` or running animations to pieces inside the pile: Safari then splits every overlapping piece above them into its own layer, which made the game lag badly. The one exception is the dragged chili, which is the topmost piece while held.
+  - Never animate `filter` or `box-shadow`. Set a filter once if needed, and animate only `transform` and `opacity`.
+  - Tossed chilies fly in `.flight-layer`, above the plate, with a fixed drop-shadow.
+  - Desktop Chromium numbers don't prove it's smooth on the phone. Always ask the player to try it on the iPhone.
 - **Previews:** show a preview or mockup before making design changes to the game.
 - **Prototypes:** build experimental ideas as separate prototypes, not in the game.
 - **Merging:** ask before opening and merging a pull request.
@@ -39,6 +46,7 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
 ## Next to-dos
 
 1. **Friends competition:** leaderboards are saved per phone only. Idea: a daily shared plate plus a shareable score card.
-2. **3D direction:** after playing `prototype-3d/`, decide between a full 3D rebuild and a middle route (2D with 3D-style flicks and shadows).
+2. **3D direction:** the middle route (2D with the 3D-style tumble) is now in the game. The full 3D rebuild (`prototype-3d/`) is on hold.
+5. **If the phone still runs warm:** draw the pile's chili and chicken designs once as ready-made pictures, instead of re-shading about 400 vector drawings whenever a chili leaves. Taps would then need to use the shape outlines that cover detection already has. It's a bigger change, so do it on its own branch.
 3. **Visit count:** a simple, privacy-friendly count (for example GoatCounter, which needs a sign-up and a change to the page's Content-Security-Policy). Skipped for now.
 4. **Smaller buttons still under 44 px** (not on the original list): the plate-screen arrows (32), the Music and Sound "On" toggles, and the plate dots.

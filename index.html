@@ -144,7 +144,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .stat .value{font-size:22px; line-height:1.05; font-weight:700; font-variant-numeric:tabular-nums; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:var(--porcelain);}
   .hud-actions{display:flex; align-items:center; gap:8px;}
   .hud-icon-btn{
-    width:44px; height:44px; border-radius:50%; padding:0; flex:0 0 auto;
+    width:40px; height:40px; border-radius:50%; padding:0; flex:0 0 auto;
     display:flex; align-items:center; justify-content:center;
     color:rgba(244,241,230,0.92); cursor:pointer;
     background:rgba(28,19,13,0.42); border:1px solid rgba(244,241,230,0.2);
@@ -157,11 +157,12 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .hud-icon-btn:focus-visible{outline:2px solid var(--porcelain); outline-offset:2px;}
   .hud-icon-btn svg{pointer-events:none; transition:transform 0.35s ease;}
   #settings-btn[aria-expanded="true"] svg{transform:rotate(60deg);}
-  #settings-btn.nudge{animation: gearNudge 1.1s ease-in-out 3;}
-  @keyframes gearNudge{
-    0%,100%{box-shadow:0 2px 6px rgba(0,0,0,0.25);}
-    50%{box-shadow:0 0 0 3px rgba(239,193,105,0.35), 0 0 14px 4px rgba(239,193,105,0.55);}
-  }
+  /* the nudge glow is a fixed ring that fades in and out (animating box-shadow repainted the whole screen) */
+  #settings-btn{position:relative;}
+  #settings-btn::after{content:''; position:absolute; inset:-1px; border-radius:50%; pointer-events:none; opacity:0;
+    box-shadow:0 0 0 3px rgba(239,193,105,0.35), 0 0 14px 4px rgba(239,193,105,0.55);}
+  #settings-btn.nudge::after{animation: gearNudge 1.1s ease-in-out 3;}
+  @keyframes gearNudge{ 0%,100%{opacity:0;} 50%{opacity:1;} }
 
   .subbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;}
 
@@ -280,6 +281,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     animation: steamRise 6.5s ease-in infinite;
     pointer-events:none; z-index:900;
   }
+  .plate.in-game .steam{display:none;}   /* hidden under the pile anyway; saves the phone animating it all game */
   @keyframes steamRise{
     0%{transform:translateY(0) scale(0.75); opacity:0;}
     18%{opacity:0.65;}
@@ -295,34 +297,28 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .chili svg > path:first-child{pointer-events:visiblePainted;}
   .chili:active{cursor:grabbing;}
   .chili.fresh{opacity:0;}
+  /* tossed chilies leave the plate (which clips its contents) and tumble out over the table */
+  .flight-layer{position:fixed; inset:0; z-index:1250; pointer-events:none; overflow:hidden;}
   .decor{pointer-events:none;}
 
   .chicken{pointer-events:none; filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
-  .chicken.free{pointer-events:auto; cursor:pointer; animation: readyPulse 2s ease-in-out infinite;}
+  /* a free piece glows steadily. Pulsing the glow made the phone redraw the whole plate every
+     frame (it ran hot and choppy), so the glow is set once, when the piece becomes free. */
+  .chicken.free{pointer-events:auto; cursor:pointer;
+    filter: drop-shadow(0 0 5px rgba(255,205,110,0.9)) drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
   /* invisible halo: a free piece accepts taps a little outside its outline */
   .chicken.free::after{content:''; position:absolute; inset:-14%; border-radius:50%;}
-  .chicken.free.big{animation: readyPulseBig 1.7s ease-in-out infinite;}
-  @keyframes readyPulse{
-    0%,100%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
-    50%{filter: drop-shadow(0 0 6px rgba(255,205,110,0.85)) drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
-  }
-  @keyframes readyPulseBig{
-    0%,100%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.45));}
-    50%{filter: drop-shadow(0 0 11px rgba(255,196,80,1)) drop-shadow(0 2px 2px rgba(60,40,20,0.45));}
-  }
+  .chicken.free.big{filter: drop-shadow(0 0 9px rgba(255,196,80,1)) drop-shadow(0 2px 2px rgba(60,40,20,0.45));}
   .chicken.free:hover{transform: translate(-50%,-50%) rotate(var(--rot,0deg)) scale(1.09);}
-  @keyframes rainbowHue{
-    0%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4)) hue-rotate(0deg) saturate(2.4);}
-    100%{filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4)) hue-rotate(360deg) saturate(2.4);}
-  }
-  @keyframes rainbowRingSpin{ to{ transform:rotate(360deg); } }
-  .chicken.rainbow{animation: rainbowHue 1.8s linear infinite, readyPulse 2s ease-in-out infinite;}
-  .chicken.rainbow.big{animation: rainbowHue 1.8s linear infinite, readyPulseBig 1.7s ease-in-out infinite;}
+  /* rainbow pieces are steady too: the chicken keeps its own colour, a little brighter with a warm
+     gold rim, and a soft rainbow halo glows behind it. Anything moving inside the plate makes
+     iPhone Safari split the pile into many layers, which is slow. */
+  .chicken.rainbow, .chicken.rainbow.free, .chicken.rainbow.free.big{
+    filter: drop-shadow(0 0 6px rgba(255,236,170,0.95)) drop-shadow(0 2px 2px rgba(60,40,20,0.4)) brightness(1.12) saturate(1.25);}
   .chicken.rainbow::before{
-    content:''; position:absolute; inset:-28%; border-radius:50%; z-index:-1; pointer-events:none;
-    background:conic-gradient(from 0deg, #ff5252, #ffca28, #ffee58, #66bb6a, #42a5f5, #ab47bc, #ff5252);
-    filter:blur(5px); opacity:0.8;
-    animation: rainbowRingSpin 2.2s linear infinite;
+    content:''; position:absolute; inset:-40%; border-radius:50%; z-index:-1; pointer-events:none;
+    background:conic-gradient(from 0deg, #ff7a7a, #ffc46b, #ffe96b, #8fe08a, #7fb8ff, #c79bff, #ff7a7a);
+    filter:blur(8px); opacity:0.7;
   }
   .chicken.picked{
     opacity:0; transform: translate(-50%,-50%) rotate(var(--rot,0deg)) scale(0.4) translateY(-16px);
@@ -507,7 +503,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   #end-screen .leaderboard-name-input{font-size:16px; letter-spacing:4px; width:88px; padding:6px 0 6px 4px;}
   .end-actions{display:flex; align-items:center; justify-content:center; gap:10px; margin-top:4px;}
   .end-actions .btn{margin-top:0; height:36px; padding-top:0; padding-bottom:0;}
-  .end-actions .btn.icon-btn{width:44px; height:44px; padding:0;}
+  .end-actions .btn.icon-btn{width:44px; height:40px; padding:0;}
   .end-actions .btn.icon-btn.hidden{display:none;}
   .skin-progress-wrap.owned{justify-content:center;}
   .skin-progress-wrap.owned .skin-progress-track{display:none;}
@@ -574,7 +570,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .btn.small{font-size:12.5px; padding:6px 15px; margin-top:0;}
   .btn.tiny{font-size:11.5px; padding:4px 10px; margin-top:0;}
   .btn.tiny.off{opacity:0.5;}
-  .btn.icon-btn{width:44px; height:44px; padding:0; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1;}
+  .btn.icon-btn{width:40px; height:40px; padding:0; display:flex; align-items:center; justify-content:center; font-size:19px; line-height:1;}
   .info-steps{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:11px;}
   .info-steps li{display:flex; align-items:center; gap:10px;}
   .info-step-icon{
@@ -603,8 +599,11 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .btn:disabled{opacity:0.4; cursor:default;}
   .btn:disabled:hover{filter:none;}
   .btn:disabled:active{transform:none; box-shadow:var(--btn-gold-shadow);}
-  #zen-btn, #challenge-btn{animation: playGlow 2.6s ease-in-out infinite; padding-top:12px; padding-bottom:12px;}   /* 44px tall */
-  /* small buttons that keep their look but get a 44px tap area (Apple's minimum) */
+  #zen-btn, #challenge-btn{animation: playGlow 2.6s ease-in-out infinite;}
+  /* buttons keep their original size but answer taps across at least 44px (Apple's minimum) */
+  .hud-icon-btn, .btn.icon-btn, #zen-btn, #challenge-btn{position:relative;}
+  .hud-icon-btn::before, .btn.icon-btn::before, #zen-btn::before, #challenge-btn::before{
+    content:''; position:absolute; left:50%; top:50%; width:max(100%, 44px); height:max(100%, 44px); transform:translate(-50%,-50%);}
   #upgrades-btn, #skin-back-btn{position:relative;}
   #upgrades-btn::after, #skin-back-btn::after{content:''; position:absolute; left:50%; top:50%; width:max(100%, 44px); height:44px; transform:translate(-50%,-50%);}
   #zen-btn:hover, #challenge-btn:hover{animation-play-state:paused;}
@@ -779,7 +778,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     .power-stat .label.active, .power-stat .label.active .pw{animation:none;}
     .chicken.free, .chicken.free.big{animation:none;}
     .chicken.rainbow, .chicken.rainbow.big, .chicken.rainbow::before{animation:none;}
-    #zen-btn, #challenge-btn, .chip i, .steam, .screen .cn-title .hz, #settings-btn.nudge{animation:none;}
+    #zen-btn, #challenge-btn, .chip i, .steam, .screen .cn-title .hz, #settings-btn.nudge::after{animation:none;}
     .hud-icon-btn svg{transition:none;}
     .countdown-number{animation:none;}
     .reveal-glow{animation:none; opacity:0.85; transform:translate(-50%,-50%) scale(1);}
@@ -2253,6 +2252,7 @@ document.addEventListener('touchmove', function(e){
     chili.dx = 0;
     chili.dy = 0;
     el.style.transition = 'none';
+    el.style.willChange = 'transform';   // its own layer while held, so moving it doesn't repaint the plate
     chili.prevZ = el.style.zIndex;
     el.style.zIndex = 1100;
     try{ els.layer.setPointerCapture(e.pointerId); }catch(err){}
@@ -2287,6 +2287,7 @@ document.addEventListener('touchmove', function(e){
       chili.el.style.setProperty('--dx', '0px');
       chili.el.style.setProperty('--dy', '0px');
       chili.el.style.zIndex = chili.prevZ;
+      chili.el.style.willChange = '';
       // a quick tap on a chili that's only grazing a free piece should pick the piece
       if(e.type === 'pointerup'){
         const under = freeChickenAt(e.clientX, e.clientY);
@@ -2313,10 +2314,13 @@ document.addEventListener('touchmove', function(e){
 
   function tossAway(chili, dx, dy){
     const el = chili.el;
-    el.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
-    el.style.setProperty('--dx', (dx*2.3) + 'px');
-    el.style.setProperty('--dy', (dy*2.3) + 'px');
-    el.style.opacity = '0';
+    if(!tumbleOffPlate(el, dx, dy)){
+      el.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+      el.style.setProperty('--dx', (dx*2.3) + 'px');
+      el.style.setProperty('--dy', (dy*2.3) + 'px');
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 300);
+    }
     activeChilies.delete(chili);
     Sfx.toss(chili.x);
     state.chiliesMoved += 1;
@@ -2328,7 +2332,58 @@ document.addEventListener('touchmove', function(e){
       updateChickenCover(chicken);
       if(chicken.covers <= 0 && !chicken.picked) chicken.el.classList.add('free');
     }
-    setTimeout(() => el.remove(), 300);
+  }
+
+  /**
+   * The tossed chili lifts off the plate, flips end over end through the air (growing as it
+   * comes up towards you, its shadow falling away), clears the rim and lands on the table with
+   * a little bounce, then fades. Returns false when the plain slide-and-fade should be used.
+   */
+  const reduceMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let flightLayer = null;
+  function tumbleOffPlate(el, dx, dy){
+    if(!el.animate || (reduceMotionQuery && reduceMotionQuery.matches)) return false;
+    if(!flightLayer){
+      flightLayer = document.createElement('div');
+      flightLayer.className = 'flight-layer';
+      document.querySelector('.app').appendChild(flightLayer);
+    }
+    const r = el.getBoundingClientRect(), pr = els.plate.getBoundingClientRect();
+    const sx = r.left + r.width / 2, sy = r.top + r.height / 2;
+    const cx = pr.left + pr.width / 2, cy = pr.top + pr.height / 2, R = pr.width / 2 * 1.08;
+
+    // throw along the swipe (or straight outwards for a nudge) far enough to clear the rim
+    let len = Math.hypot(dx, dy), ux = dx, uy = dy;
+    if(len < 1){ ux = sx - cx; uy = sy - cy; len = Math.hypot(ux, uy) || 1; }
+    ux /= len; uy /= len;
+    const px = sx - cx, py = sy - cy, b = px * ux + py * uy, c = px * px + py * py - R * R;
+    const L = Math.max(60, -b + Math.sqrt(Math.max(0, b * b - c))) + 14 + Math.random() * 28;
+
+    const rot = parseFloat(el.style.getPropertyValue('--rot')) || 0;
+    const spin = (Math.random() < 0.5 ? -1 : 1) * (220 + Math.random() * 260);
+    const flip = Math.random() < 0.5 ? 360 : -360, tilt = (Math.random() - 0.5) * 0.8;   // end over end, on a slightly tilted axis
+    const lift = 34 + Math.min(56, L * 0.22);
+    const at = (f, up, scale, f2, turn) =>
+      `translate(-50%,-50%) translate(${(ux * L * f).toFixed(1)}px, ${(uy * L * f - up).toFixed(1)}px) perspective(600px) ` +
+      `rotate(${(rot + spin * turn).toFixed(1)}deg) rotate3d(${tilt.toFixed(2)}, 1, 0, ${flip * f2}deg) scale(${scale})`;
+
+    el.style.transition = 'none';
+    el.style.left = sx + 'px'; el.style.top = sy + 'px';
+    el.style.opacity = '1';
+    el.style.filter = 'drop-shadow(2px 6px 4px rgba(40,20,8,0.35))';   // set once: an animated shadow is redrawn every frame
+    flightLayer.appendChild(el);
+
+    const FLY = 780;
+    el.animate([
+      { offset:0,    transform:at(0, 0, 1, 0, 0), easing:'cubic-bezier(.25,.7,.45,1)' },
+      { offset:0.45, transform:at(0.55, lift, 1.38, 0.6, 0.6), easing:'cubic-bezier(.55,0,.85,.55)' },
+      { offset:0.78, transform:at(1, 0, 1, 1, 1), easing:'ease-out' },
+      { offset:0.89, transform:at(1.06, 7, 1.05, 1, 1.03), easing:'ease-in' },
+      { offset:1,    transform:at(1.1, 0, 1, 1, 1.05) }
+    ], { duration:FLY, fill:'forwards' });
+    el.animate([{ opacity:1 }, { opacity:0 }], { duration:400, delay:FLY + 450, fill:'forwards' })
+      .onfinish = () => el.remove();
+    return true;
   }
 
   /** Shared helper: flings up to `count` of the chilies nearest `origin` (within `radiusPct`). */
@@ -2384,6 +2439,15 @@ document.addEventListener('touchmove', function(e){
     const ctx = canvas.getContext('2d');
     const parts = [];
     let level = 0, heat = '', running = false, last = 0, carry = 0, W = 0, H = 0;
+    // each spark is a soft glow; draw the three colours once and stamp them, rather than
+    // building a new gradient for every spark on every frame
+    const sprites = ['255,236,170', '255,160,60', '214,60,30'].map(c => {
+      const s = document.createElement('canvas'); s.width = s.height = 64;
+      const g = s.getContext('2d'), grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(' + c + ',1)'); grad.addColorStop(1, 'rgba(' + c + ',0)');
+      g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+      return s;
+    });
 
     function measure(){
       // layout size, so a scaled-down HUD still draws crisply
@@ -2397,6 +2461,8 @@ document.addEventListener('touchmove', function(e){
       if(!canvas.isConnected || (!heat && !parts.length) || !canvas.offsetParent){
         running = false; parts.length = 0; ctx.clearRect(0, 0, W, H); return;
       }
+      // 60 updates a second is plenty for fire; ProMotion iPhones would otherwise run it at 120
+      if(now - last < 15){ requestAnimationFrame(frame); return; }
       measure();
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       const filled = Math.max(0, (W - TRACK_LEFT - TRACK_PAD) * level / 100);
@@ -2416,14 +2482,10 @@ document.addEventListener('touchmove', function(e){
         p.x += (p.vx + Math.sin(now / 160 + p.seed) * 6) * dt;
         p.y += p.vy * dt;
         const r = p.r * (1 - k * 0.7) * 2.2;
-        const c = k < 0.25 ? '255,236,170' : k < 0.55 ? '255,160,60' : '214,60,30';   // cools as it rises
-        const a = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * 0.8;
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-        g.addColorStop(0, 'rgba(' + c + ',' + a + ')');
-        g.addColorStop(1, 'rgba(' + c + ',0)');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * 0.8;
+        ctx.drawImage(sprites[k < 0.25 ? 0 : k < 0.55 ? 1 : 2], p.x - r, p.y - r, r * 2, r * 2);   // cools as it rises
       }
+      ctx.globalAlpha = 1;
       requestAnimationFrame(frame);
     }
     return {
@@ -2704,6 +2766,7 @@ document.addEventListener('touchmove', function(e){
   function setMenuChrome(hidden){
     els['hud-bar'].classList.toggle('menu-hidden', hidden);
     els['subbar'].classList.toggle('menu-hidden', hidden);
+    els.plate.classList.toggle('in-game', !hidden);   // steam only rises over the menu plate
     if(els['table-deco']) requestAnimationFrame(layoutTableScene);
   }
 

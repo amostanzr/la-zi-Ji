@@ -28,12 +28,12 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
   - Buttons meet Apple's 44 pt minimum: icons, the gear, back buttons, Challenge and Relax are 44 px. Upgrades and the plate-screen back button keep their look, with an invisible 44 px tap area.
   - A ranked Challenge run is saved straight away under the last name used (or "YOU"); typing a name renames it. The leaderboard has a two-tap Reset, which also clears the best Challenge score.
   - Tossed chilies tumble off the plate (`tumbleOffPlate`): they arc up, flip end over end, land on the table with a small bounce, rest, then fade. The player approved the speed and timing; no landing sound.
-- **Performance (the phone got hot):** the plate holds about 400 pieces, so anything that makes the browser repaint or re-layerize it every frame is expensive.
-  - Never animate `filter` (or `box-shadow`) on pieces; animate only `transform` and `opacity`, ideally on a pseudo-element or separate element.
-  - Use pixel offsets, not percentages, in animated transforms, and keep each element to one animation, so the animation runs on the graphics chip.
-  - Never put an animated element inside a filtered one: the chicken's drop-shadow sits on its `svg`, not on `.chicken`, because the halo (`::before`) animates. Otherwise the whole plate is re-layerized every frame.
-  - A held chili gets `will-change: transform` while it is dragged, so moving it doesn't repaint the plate.
-  - Measure with the Chromium trace: count `Layerize` frames and check `Animation` events for `compositeFailed`.
+- **Performance (hot phone, then a laggy look):** the plate holds about 400 pieces, so per-frame work on it is expensive, and iPhone Safari is stricter than desktop Chrome.
+  - Nothing inside the plate's `.layer` animates continuously. Free chicken have a steady gold glow (set once when freed), and rainbow pieces have a steady tint and ring.
+  - Don't add `will-change` or running animations to pieces inside the pile: Safari then splits every overlapping piece above them into its own layer, which made the game lag badly. The one exception is the dragged chili, which is the topmost piece while held.
+  - Never animate `filter` or `box-shadow`. Set a filter once if needed, and animate only `transform` and `opacity`.
+  - Tossed chilies fly in `.flight-layer`, above the plate, with a fixed drop-shadow.
+  - Desktop Chromium numbers don't prove it's smooth on the phone. Always ask the player to try it on the iPhone.
 - **Previews:** show a preview or mockup before making design changes to the game.
 - **Prototypes:** build experimental ideas as separate prototypes, not in the game.
 - **Merging:** ask before opening and merging a pull request.
@@ -45,7 +45,7 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
 
 ## Next to-dos
 
-0. **In progress, not merged** (branch `claude/gifted-planck-x80p4w`): the tumbling toss plus the performance fixes. The free-chicken glow is now a pulsing gold halo, and rainbow pieces have a fixed tint with a spinning ring. The low-frame-rate look is fixed (see Performance); next, the player tries it on the phone, then get approval and merge.
+0. **In progress, not merged** (branch `claude/gifted-planck-x80p4w`): the tumbling toss (first version) with the steady-glow approach above. An earlier attempt with a pulsing halo and extra layers lagged badly on the iPhone and was reverted. Next: the player tries it on the phone, then get approval and merge.
 1. **Friends competition:** leaderboards are saved per phone only. Idea: a daily shared plate plus a shareable score card.
 2. **3D direction:** the middle route (2D with the 3D-style tumble) is being tried first, see item 0. The full 3D rebuild (`prototype-3d/`) is on hold.
 3. **Visit count:** a simple, privacy-friendly count (for example GoatCounter, which needs a sign-up and a change to the page's Content-Security-Policy). Skipped for now.

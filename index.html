@@ -295,6 +295,8 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .chili svg > path:first-child{pointer-events:visiblePainted;}
   .chili:active{cursor:grabbing;}
   .chili.fresh{opacity:0;}
+  /* tossed chilies leave the plate (which clips its contents) and tumble out over the table */
+  .flight-layer{position:fixed; inset:0; z-index:1250; pointer-events:none; overflow:hidden;}
   .decor{pointer-events:none;}
 
   .chicken{pointer-events:none; filter: drop-shadow(0 2px 2px rgba(60,40,20,0.4));}
@@ -2313,10 +2315,13 @@ document.addEventListener('touchmove', function(e){
 
   function tossAway(chili, dx, dy){
     const el = chili.el;
-    el.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
-    el.style.setProperty('--dx', (dx*2.3) + 'px');
-    el.style.setProperty('--dy', (dy*2.3) + 'px');
-    el.style.opacity = '0';
+    if(!tumbleOffPlate(el, dx, dy)){
+      el.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+      el.style.setProperty('--dx', (dx*2.3) + 'px');
+      el.style.setProperty('--dy', (dy*2.3) + 'px');
+      el.style.opacity = '0';
+      setTimeout(() => el.remove(), 300);
+    }
     activeChilies.delete(chili);
     Sfx.toss(chili.x);
     state.chiliesMoved += 1;
@@ -2328,7 +2333,58 @@ document.addEventListener('touchmove', function(e){
       updateChickenCover(chicken);
       if(chicken.covers <= 0 && !chicken.picked) chicken.el.classList.add('free');
     }
-    setTimeout(() => el.remove(), 300);
+  }
+
+  /**
+   * The tossed chili lifts off the plate, flips end over end through the air (growing as it
+   * comes up towards you, its shadow falling away), clears the rim and lands on the table with
+   * a little bounce, then fades. Returns false when the plain slide-and-fade should be used.
+   */
+  const reduceMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  let flightLayer = null;
+  function tumbleOffPlate(el, dx, dy){
+    if(!el.animate || (reduceMotionQuery && reduceMotionQuery.matches)) return false;
+    if(!flightLayer){
+      flightLayer = document.createElement('div');
+      flightLayer.className = 'flight-layer';
+      document.querySelector('.app').appendChild(flightLayer);
+    }
+    const r = el.getBoundingClientRect(), pr = els.plate.getBoundingClientRect();
+    const sx = r.left + r.width / 2, sy = r.top + r.height / 2;
+    const cx = pr.left + pr.width / 2, cy = pr.top + pr.height / 2, R = pr.width / 2 * 1.08;
+
+    // throw along the swipe (or straight outwards for a nudge) far enough to clear the rim
+    let len = Math.hypot(dx, dy), ux = dx, uy = dy;
+    if(len < 1){ ux = sx - cx; uy = sy - cy; len = Math.hypot(ux, uy) || 1; }
+    ux /= len; uy /= len;
+    const px = sx - cx, py = sy - cy, b = px * ux + py * uy, c = px * px + py * py - R * R;
+    const L = Math.max(60, -b + Math.sqrt(Math.max(0, b * b - c))) + 14 + Math.random() * 28;
+
+    const rot = parseFloat(el.style.getPropertyValue('--rot')) || 0;
+    const spin = (Math.random() < 0.5 ? -1 : 1) * (220 + Math.random() * 260);
+    const flip = Math.random() < 0.5 ? 360 : -360, tilt = (Math.random() - 0.5) * 0.8;   // end over end, on a slightly tilted axis
+    const lift = 34 + Math.min(56, L * 0.22);
+    const at = (f, up, scale, f2, turn) =>
+      `translate(-50%,-50%) translate(${(ux * L * f).toFixed(1)}px, ${(uy * L * f - up).toFixed(1)}px) perspective(600px) ` +
+      `rotate(${(rot + spin * turn).toFixed(1)}deg) rotate3d(${tilt.toFixed(2)}, 1, 0, ${flip * f2}deg) scale(${scale})`;
+    const shadow = (x, y, blur, a) => `drop-shadow(${x.toFixed(1)}px ${y.toFixed(1)}px ${blur}px rgba(40,20,8,${a}))`;
+
+    el.style.transition = 'none';
+    el.style.left = sx + 'px'; el.style.top = sy + 'px';
+    el.style.opacity = '1';
+    flightLayer.appendChild(el);
+
+    const FLY = 780;
+    el.animate([
+      { offset:0,    transform:at(0, 0, 1, 0, 0),             filter:shadow(0, 2, 2, 0.35), easing:'cubic-bezier(.25,.7,.45,1)' },
+      { offset:0.45, transform:at(0.55, lift, 1.38, 0.6, 0.6), filter:shadow(ux * 8, lift * 0.55, 9, 0.22), easing:'cubic-bezier(.55,0,.85,.55)' },
+      { offset:0.78, transform:at(1, 0, 1, 1, 1),             filter:shadow(0, 3, 3, 0.45), easing:'ease-out' },
+      { offset:0.89, transform:at(1.06, 7, 1.05, 1, 1.03),     filter:shadow(1, 6, 4, 0.38), easing:'ease-in' },
+      { offset:1,    transform:at(1.1, 0, 1, 1, 1.05),         filter:shadow(0, 3, 3, 0.45) }
+    ], { duration:FLY, fill:'forwards' });
+    el.animate([{ opacity:1 }, { opacity:0 }], { duration:400, delay:FLY + 450, fill:'forwards' })
+      .onfinish = () => el.remove();
+    return true;
   }
 
   /** Shared helper: flings up to `count` of the chilies nearest `origin` (within `radiusPct`). */

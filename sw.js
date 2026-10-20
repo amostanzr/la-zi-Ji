@@ -1,4 +1,4 @@
-const CACHE = "laziji-v7";
+const CACHE = "laziji-v8";
 const CORE = [
   "./",
   "./index.html",
@@ -25,15 +25,19 @@ self.addEventListener("activate", event => {
 
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
-  // The game page itself: always try the network first so updates show up straight away,
-  // and fall back to the saved copy only when offline.
+  // Pages (the game, and side pages like the 3D mockup): always try the network first so
+  // updates show up straight away, and fall back to the saved copy only when offline. Each
+  // page is saved under its own address so one page never replaces another offline.
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put("./index.html", copy));
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put(event.request, copy));
+        }
         return response;
-      }).catch(() => caches.match("./index.html").then(r => r || caches.match("./")))
+      }).catch(() => caches.match(event.request, { ignoreSearch: true })
+        .then(r => r || caches.match("./index.html")))
     );
     return;
   }

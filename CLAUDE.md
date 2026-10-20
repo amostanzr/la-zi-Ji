@@ -31,6 +31,8 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
 - **Performance (the phone got hot):** the plate holds about 400 pieces, so anything that makes the browser repaint or re-layerize it every frame is expensive.
   - Never animate `filter` (or `box-shadow`) on pieces; animate only `transform` and `opacity`, ideally on a pseudo-element or separate element.
   - Use pixel offsets, not percentages, in animated transforms, and keep each element to one animation, so the animation runs on the graphics chip.
+  - Never put an animated element inside a filtered one: the chicken's drop-shadow sits on its `svg`, not on `.chicken`, because the halo (`::before`) animates. Otherwise the whole plate is re-layerized every frame.
+  - A held chili gets `will-change: transform` while it is dragged, so moving it doesn't repaint the plate.
   - Measure with the Chromium trace: count `Layerize` frames and check `Animation` events for `compositeFailed`.
 - **Previews:** show a preview or mockup before making design changes to the game.
 - **Prototypes:** build experimental ideas as separate prototypes, not in the game.
@@ -43,7 +45,7 @@ When analyzing any complex topic, problem, or decision, do not provide a single 
 
 ## Next to-dos
 
-0. **In progress, not merged** (branch `claude/gifted-planck-x80p4w`): the tumbling toss plus the performance fixes. The free-chicken glow is now a pulsing gold halo, and rainbow pieces have a fixed tint with a spinning ring. The player still finds the game **looks laggy, like a low frame rate**: investigate and fix that next, then get approval and merge.
+0. **In progress, not merged** (branch `claude/gifted-planck-x80p4w`): the tumbling toss plus the performance fixes. The free-chicken glow is now a pulsing gold halo, and rainbow pieces have a fixed tint with a spinning ring. The low-frame-rate look is fixed (see Performance); next, the player tries it on the phone, then get approval and merge.
 1. **Friends competition:** leaderboards are saved per phone only. Idea: a daily shared plate plus a shareable score card.
 2. **3D direction:** the middle route (2D with the 3D-style tumble) is being tried first, see item 0. The full 3D rebuild (`prototype-3d/`) is on hold.
 3. **Visit count:** a simple, privacy-friendly count (for example GoatCounter, which needs a sign-up and a change to the page's Content-Security-Policy). Skipped for now.

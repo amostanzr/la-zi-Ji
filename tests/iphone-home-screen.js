@@ -86,7 +86,7 @@ function check(name, ok, detail){
       check('no sideways scrolling', scrollW <= SCREEN.width, `${scrollW}px wide`);
 
       // a button may look smaller than 44 px, as long as taps across 44 px reach it
-      const small = await page.evaluate(() => ['challenge-btn', 'zen-btn', 'skin-btn', 'leaderboard-btn', 'menu-sound-btn'].map(id => {
+      const small = await page.evaluate(() => ['challenge-btn', 'timing-30', 'timing-60', 'zen-btn', 'skin-btn', 'leaderboard-btn', 'menu-sound-btn'].map(id => {
         const el = document.getElementById(id), r = el.getBoundingClientRect();
         const cx = r.left + r.width / 2, cy = r.top + r.height / 2, reach = 21.5;
         const hits = (x, y) => { const h = document.elementFromPoint(x, y); return !!h && (h === el || el.contains(h)); };

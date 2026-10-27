@@ -1,4 +1,4 @@
-const CACHE = "laziji-v15";
+const CACHE = "laziji-v16";
 const CORE = [
   "./",
   "./index.html",

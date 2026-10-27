@@ -394,8 +394,25 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .best-score{font-size:12.5px; color:rgba(244,241,230,0.55); margin:0;}
   .best-score b{color:var(--gold); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-weight:800;}
   .menu-icon-row{display:flex; gap:8px;}
-  #leaderboard-screen{justify-content:flex-start; padding:9% 14% 4%; overflow:hidden; touch-action:none; overscroll-behavior:none; gap:5px;}
-  #leaderboard-screen > *{flex-shrink:0;}
+  /* the leaderboard is scaled to fit inside the round plate (fitInPlate), like the results card */
+  #leaderboard-screen{justify-content:center; padding:10% 12%; overflow:hidden; touch-action:none; overscroll-behavior:none;}
+  .plate-content{display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; transform-origin:50% 50%;}
+  .plate-content > *{flex-shrink:0;}
+  /* Challenge length: a 30s / 60s pill under the Challenge button, and the same style for the leaderboard tabs */
+  .timing-switch{display:inline-flex; gap:4px; padding:3px; border-radius:999px; margin:-4px 0 0;
+    background:rgba(20,12,6,0.45); border:1px solid rgba(239,193,105,0.35);}
+  .timing-switch button{position:relative; font:700 13px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    letter-spacing:.04em; color:rgba(244,241,230,0.72); background:transparent; border:0; border-radius:999px; padding:5px 16px; cursor:pointer;}
+  .timing-switch button[aria-pressed="true"]{color:#2A1709; background:linear-gradient(180deg,#FCE8AE,#E6B052 55%,#C9922F); box-shadow:0 2px 0 #7A4B12;}
+  .timing-switch button:focus-visible{outline:2px solid var(--porcelain); outline-offset:2px;}
+  .timing-switch button::before{content:''; position:absolute; left:0; right:0; top:50%; height:44px; transform:translateY(-50%);}   /* 44px tap area */
+  .board-tabs{margin:2px 0 4px;}
+  #menu-content{gap:10px;}
+  #start-screen .timing-switch{margin:-3px 0 0;}
+  /* the menu may be scaled down a little on small phones (fitMenu), so its tap areas start at 48px */
+  #menu-content .btn::before{width:max(100%, 48px); height:max(100%, 48px);}
+  #menu-content .timing-switch button::before{height:46px;}
+  .board-tabs button{padding:5px 13px;}
   .leaderboard-list{display:flex; flex-direction:column; gap:6px; width:100%; max-width:360px; margin-top:6px;}
   .leaderboard-row{
     display:flex; align-items:center; gap:10px;
@@ -1052,29 +1069,34 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
 
     <div class="screen" id="start-screen">
       <div class="menu-deco" id="menu-deco"></div>
-      <div class="cn-title">
-        <span class="ch"><span class="py">là</span><span class="hz">辣</span></span>
-        <span class="ch"><span class="py">zǐ</span><span class="hz">子</span></span>
-        <span class="ch"><span class="py">jī</span><span class="hz">鸡</span></span>
-      </div>
-      <div class="romanized">Sichuan chili chicken</div>
-      <div class="menu-divider"><span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
-      <button class="btn" id="challenge-btn">Challenge</button>
-      <button class="btn" id="zen-btn">Relax</button>
-      <div class="menu-icon-row">
-        <button class="btn ghost icon-btn" id="skin-btn" aria-label="Change Plate" title="Change Plate">&#9678;</button>
-        <button class="btn ghost icon-btn" id="leaderboard-btn" aria-label="Leaderboard" title="Leaderboard">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M8 4h8v3a4 4 0 0 1-4 4 4 4 0 0 1-4-4V4z"/>
-            <path d="M8 4.5H4.5V6a3.5 3.5 0 0 0 3.5 3.5"/>
-            <path d="M16 4.5h3.5V6A3.5 3.5 0 0 1 16 9.5"/>
-            <path d="M12 11v3.5"/>
-            <path d="M9 19.5h6"/>
-            <path d="M10 15.5h4l1 4H9l1-4z"/>
-          </svg>
-        </button>
-        <div class="settings-wrap" id="settings-wrap-menu">
-          <button class="btn ghost icon-btn" id="menu-sound-btn" aria-label="Sound Settings" title="Sound Settings">&#9835;</button>
+      <div class="plate-content" id="menu-content">
+        <div class="cn-title">
+          <span class="ch"><span class="py">là</span><span class="hz">辣</span></span>
+          <span class="ch"><span class="py">zǐ</span><span class="hz">子</span></span>
+          <span class="ch"><span class="py">jī</span><span class="hz">鸡</span></span>
+        </div>
+        <div class="romanized">Sichuan chili chicken</div>
+        <div class="menu-divider"><span class="d1"></span><span class="d2"></span><span class="d3"></span></div>
+        <button class="btn" id="challenge-btn">Challenge</button>
+        <div class="timing-switch" role="group" aria-label="Challenge length">
+          <button type="button" id="timing-30" aria-pressed="true">30s</button><button type="button" id="timing-60" aria-pressed="false">60s</button>
+        </div>
+        <button class="btn" id="zen-btn">Relax</button>
+        <div class="menu-icon-row">
+          <button class="btn ghost icon-btn" id="skin-btn" aria-label="Change Plate" title="Change Plate">&#9678;</button>
+          <button class="btn ghost icon-btn" id="leaderboard-btn" aria-label="Leaderboard" title="Leaderboard">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 4h8v3a4 4 0 0 1-4 4 4 4 0 0 1-4-4V4z"/>
+              <path d="M8 4.5H4.5V6a3.5 3.5 0 0 0 3.5 3.5"/>
+              <path d="M16 4.5h3.5V6A3.5 3.5 0 0 1 16 9.5"/>
+              <path d="M12 11v3.5"/>
+              <path d="M9 19.5h6"/>
+              <path d="M10 15.5h4l1 4H9l1-4z"/>
+            </svg>
+          </button>
+          <div class="settings-wrap" id="settings-wrap-menu">
+            <button class="btn ghost icon-btn" id="menu-sound-btn" aria-label="Sound Settings" title="Sound Settings">&#9835;</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1106,11 +1128,16 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
     </div>
 
     <div class="screen hidden" id="leaderboard-screen">
-      <h2>Challenge leaderboard</h2>
-      <div class="leaderboard-list" id="leaderboard-list"></div>
-      <p class="leaderboard-empty hidden" id="leaderboard-empty">No scores yet. Play Challenge to get on the board!</p>
-      <button class="btn ghost small hidden" id="leaderboard-reset-btn">Reset</button>
-      <button class="btn ghost icon-btn" id="leaderboard-back-btn" aria-label="Back" title="Back"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <div class="plate-content" id="leaderboard-content">
+        <h2>Challenge leaderboard</h2>
+        <div class="timing-switch board-tabs" role="group" aria-label="Which leaderboard">
+          <button type="button" id="board-30" aria-pressed="true">30 seconds</button><button type="button" id="board-60" aria-pressed="false">60 seconds</button>
+        </div>
+        <div class="leaderboard-list" id="leaderboard-list"></div>
+        <p class="leaderboard-empty hidden" id="leaderboard-empty">No scores yet. Play Challenge to get on the board!</p>
+        <button class="btn ghost small hidden" id="leaderboard-reset-btn">Reset</button>
+        <button class="btn ghost icon-btn" id="leaderboard-back-btn" aria-label="Back" title="Back"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      </div>
     </div>
 
     <div class="lock-dialog-overlay" id="lock-dialog-overlay">
@@ -1191,7 +1218,7 @@ document.addEventListener('touchmove', function(e){
       }
     },
     menuPlate: { small:10, big:6, chili:220, decor:0 },   // the decorative pile behind the start menu
-    challengeDurationSec: 60,
+    challengeTimings: [30, 60],   // Challenge comes in two lengths; 30 s is the default
     rainbow: { maxActive:2, addSeconds:3, minDelayMs:3000, maxDelayMs:4000 },   // Challenge-mode rainbow chicken
 
     sweep: {
@@ -1241,7 +1268,7 @@ document.addEventListener('touchmove', function(e){
     watcher:null, challengeTimer:null, infoNudgeTimer:null, hasShownInfoNudge:false, pausedBySettings:false, powerTimer:null, countdownTimer:null,
     counting:false,
     // persisted between visits
-    bestPoints:0, bestPieces:0, lifetimePoints:0, spentPoints:0, unlockedSkins:['classic'], bestChallenge:0, challengeLeaderboard:[], playerName:'', seenHint:false,
+    bestPoints:0, bestPieces:0, lifetimePoints:0, spentPoints:0, unlockedSkins:['classic'], challengeSecs:30, runSecs:30, boardView:30, challengeBoards:{30:[], 60:[]}, bestChallengeBy:{30:0, 60:0}, playerName:'', seenHint:false,
     pendingLeaderboardEntry:null, pendingLeaderboardBoard:null, rainbowActive:0, rainbowTimer:null,
     selectedSkin:'classic', previewSkin:null
   };
@@ -1315,8 +1342,11 @@ document.addEventListener('touchmove', function(e){
         }
         if(!state.unlockedSkins.includes('classic')) state.unlockedSkins.unshift('classic');
         state.selectedSkin = data.selectedSkin || 'classic';
-        state.bestChallenge = data.bestChallenge || 0;
-        state.challengeLeaderboard = (Array.isArray(data.challengeLeaderboard) ? data.challengeLeaderboard : []).slice(0, CONFIG.leaderboardSize);
+        // every Challenge run before the 30 s option was a 60 s run, so the old board is the 60 s board
+        const board = list => (Array.isArray(list) ? list : []).slice(0, CONFIG.leaderboardSize);
+        state.challengeBoards = { 30: board(data.challengeLeaderboard30), 60: board(data.challengeLeaderboard) };
+        state.bestChallengeBy = { 30: data.bestChallenge30 || 0, 60: data.bestChallenge || 0 };
+        state.challengeSecs = data.challengeSecs === 60 ? 60 : 30;
         state.playerName = typeof data.playerName === 'string' ? data.playerName : '';
         state.seenHint = !!data.seenHint;
       }
@@ -1334,8 +1364,11 @@ document.addEventListener('touchmove', function(e){
         spentPoints: state.spentPoints,
         unlockedSkins: state.unlockedSkins,
         selectedSkin: state.selectedSkin,
-        bestChallenge: state.bestChallenge,
-        challengeLeaderboard: state.challengeLeaderboard,
+        bestChallenge: state.bestChallengeBy[60],
+        challengeLeaderboard: state.challengeBoards[60],
+        bestChallenge30: state.bestChallengeBy[30],
+        challengeLeaderboard30: state.challengeBoards[30],
+        challengeSecs: state.challengeSecs,
         playerName: state.playerName,
         seenHint: state.seenHint
       }));
@@ -1349,10 +1382,10 @@ document.addEventListener('touchmove', function(e){
    * didn't make the cut), entry is the record itself so the name field can edit it in place, and
    * board is the new list to save.
    */
-  function previewLeaderboard(score){
+  function previewLeaderboard(score, secs){
     if(score <= 0) return { rank:0, entry:null, board:null };
     const entry = { score, date: Date.now(), name: state.playerName || '' };
-    const board = [...state.challengeLeaderboard, entry];
+    const board = [...state.challengeBoards[secs], entry];
     board.sort((a,b) => b.score - a.score || a.date - b.date);
     const trimmed = board.slice(0, CONFIG.leaderboardSize);
     const rank = trimmed.indexOf(entry) + 1;
@@ -1365,10 +1398,10 @@ document.addEventListener('touchmove', function(e){
     state.pendingLeaderboardBoard = null;
   }
 
-  /** Clears the Challenge leaderboard and best Challenge score (Relax scores and plates are kept). */
+  /** Clears the leaderboard and best score for the timing on show (Relax scores and plates are kept). */
   function resetLeaderboard(){
-    state.challengeLeaderboard = [];
-    state.bestChallenge = 0;
+    state.challengeBoards[state.boardView] = [];
+    state.bestChallengeBy[state.boardView] = 0;
     saveBest();
     renderLeaderboard();
   }
@@ -1383,15 +1416,23 @@ document.addEventListener('touchmove', function(e){
     const empty = els['leaderboard-empty'];
     if(!list) return;
     list.innerHTML = '';
-    const hasEntries = state.challengeLeaderboard.length > 0;
-    if(empty) empty.classList.toggle('hidden', hasEntries);
+    const secs = state.boardView, entries = state.challengeBoards[secs];
+    for(const t of CONFIG.challengeTimings){
+      const tab = document.getElementById('board-' + t);
+      if(tab) tab.setAttribute('aria-pressed', String(t === secs));
+    }
+    const hasEntries = entries.length > 0;
+    if(empty){
+      empty.classList.toggle('hidden', hasEntries);
+      empty.textContent = `No ${secs}-second scores yet. Play Challenge to get on the board!`;
+    }
     const reset = els['leaderboard-reset-btn'];
     if(reset){
       reset.classList.toggle('hidden', !hasEntries);
       reset.classList.remove('confirm');
       reset.textContent = 'Reset';
     }
-    state.challengeLeaderboard.forEach((entry, i) => {
+    entries.forEach((entry, i) => {
       const row = document.createElement('div');
       row.className = 'leaderboard-row' + (i === 0 ? ' top' : '');
       row.innerHTML =
@@ -1401,6 +1442,8 @@ document.addEventListener('touchmove', function(e){
         `<span class="leaderboard-date">${formatLeaderboardDate(entry.date)}</span>`;
       list.appendChild(row);
     });
+    fitInPlate(els['leaderboard-screen'], document.getElementById('leaderboard-content'),
+      'h2, .timing-switch, .leaderboard-row, p, .btn');
   }
 
   // ============ plate skins ============
@@ -2418,6 +2461,11 @@ document.addEventListener('touchmove', function(e){
   // ============ power toss (Challenge mode) ============
   // Every toss fills the power bar a little; once full, the player gets a
   // short window where each toss flings several nearby chilies at once.
+  /** Tosses needed to fill the power meter: 50 in a 60 s round, 25 in a 30 s round. */
+  function powerTossesToFill(){
+    return Math.round(CONFIG.powerToss.tossesToFill * state.runSecs / 60);
+  }
+
   function resetPowerBar(){
     clearTimeout(state.powerTimer);
     state.powerTimer = null;
@@ -2520,7 +2568,7 @@ document.addEventListener('touchmove', function(e){
       }
       if(powerFire) powerFire.set(100, true);
     } else {
-      const pct = Math.min(100, (state.powerFill / CONFIG.powerToss.tossesToFill) * 100);
+      const pct = Math.min(100, (state.powerFill / powerTossesToFill()) * 100);
       fillEl.style.width = pct + '%';
       if(pct >= 85){
         fillEl.classList.add('hot'); labelEl.classList.add('hot');
@@ -2566,7 +2614,7 @@ document.addEventListener('touchmove', function(e){
       flingNearest(chili, dx, dy, total - 1, CONFIG.powerToss.radius);
     } else {
       state.powerFill += 1;
-      if(state.powerFill >= CONFIG.powerToss.tossesToFill){
+      if(state.powerFill >= powerTossesToFill()){
         activatePowerUp();
       } else {
         updatePowerBarUI();
@@ -2787,7 +2835,8 @@ document.addEventListener('touchmove', function(e){
 
     let go;
     if(state.mode === 'challenge'){
-      state.timeLeft = CONFIG.challengeDurationSec;
+      state.runSecs = state.challengeSecs;
+      state.timeLeft = state.runSecs;
       setDisplay(els['hud-timer-wrap'], true);
       els['hud-timer'].textContent = state.timeLeft;
       go = () => runCountdown(beginPlay);
@@ -2929,6 +2978,10 @@ document.addEventListener('touchmove', function(e){
   function tierText(tiers, score){
     return tiers.find(([limit]) => score <= limit)[1];
   }
+  /** Challenge tiers are set for 60 s, so a shorter round's score is scaled up to compare (halved cut-offs). */
+  function challengeTier(tiers){
+    return tierText(tiers, state.points * 60 / state.runSecs);
+  }
 
   function endSession(){
     if(state.counting) return;   // nothing has actually started yet
@@ -2941,9 +2994,10 @@ document.addEventListener('touchmove', function(e){
 
     let isNewBest, leaderboardRank = 0, leaderboardEntry = null;
     if(isChallenge){
-      isNewBest = state.points > 0 && state.points > state.bestChallenge;
-      if(isNewBest) state.bestChallenge = state.points;
-      ({ rank: leaderboardRank, entry: leaderboardEntry, board: state.pendingLeaderboardBoard } = previewLeaderboard(state.points));
+      const secs = state.runSecs;
+      isNewBest = state.points > 0 && state.points > state.bestChallengeBy[secs];
+      if(isNewBest) state.bestChallengeBy[secs] = state.points;
+      ({ rank: leaderboardRank, entry: leaderboardEntry, board: state.pendingLeaderboardBoard } = previewLeaderboard(state.points, secs));
     } else {
       isNewBest = state.points > 0 && state.points > state.bestPoints;
       if(isNewBest){
@@ -2978,8 +3032,8 @@ document.addEventListener('touchmove', function(e){
     if(rankNotice){
       if(ranked){
         rankNotice.textContent = leaderboardRank === 1
-          ? '\ud83c\udfc6 #1 on the leaderboard!'
-          : `\ud83c\udfc6 #${leaderboardRank} on the leaderboard`;
+          ? `\ud83c\udfc6 #1 on the ${state.runSecs}-second leaderboard!`
+          : `\ud83c\udfc6 #${leaderboardRank} on the ${state.runSecs}-second leaderboard`;
       }
       rankNotice.classList.toggle('hidden', !ranked);
     }
@@ -2991,7 +3045,7 @@ document.addEventListener('touchmove', function(e){
       if(ranked){
         // the run goes on the board now, under the last name used (or "YOU"); typing renames it
         state.pendingLeaderboardEntry = leaderboardEntry;
-        state.challengeLeaderboard = state.pendingLeaderboardBoard;
+        state.challengeBoards[state.runSecs] = state.pendingLeaderboardBoard;
         saveBest();
         nameInput.value = state.playerName || '';
       } else {
@@ -3008,14 +3062,22 @@ document.addEventListener('touchmove', function(e){
 
   /** Shrinks the results block just enough that every part of it sits inside the round plate. */
   function fitEndScreen(){
-    const screen = els['end-screen'], content = document.getElementById('end-content');
-    if(!content || screen.classList.contains('hidden')) return;
+    fitInPlate(els['end-screen'], document.getElementById('end-content'),
+      'h2, p, .cell, .leaderboard-name-entry > *, .end-actions > .btn');
+  }
+  /** The menu gets a little smaller on short or narrow phones so the icon row stays inside the plate. */
+  function fitMenu(){
+    fitInPlate(els['start-screen'], document.getElementById('menu-content'), '#menu-content > .btn, #menu-content .timing-switch, .menu-icon-row .btn', 0.97);
+  }
+  /** Scales a round screen's content (around its centre) until every listed part sits inside the plate. */
+  function fitInPlate(screen, content, selector, rim = 0.92){
+    if(!screen || !content || screen.classList.contains('hidden')) return;
     content.style.transform = '';
     const sr = screen.getBoundingClientRect();
-    const cx = sr.left + sr.width/2, cy = sr.top + sr.height/2, R = sr.width/2 * 0.92;   // keep clear of the rim
+    const cx = sr.left + sr.width/2, cy = sr.top + sr.height/2, R = sr.width/2 * rim;   // keep clear of the rim
     const overflow = () => {
       let worst = 0;
-      content.querySelectorAll('h2, p, .cell, .leaderboard-name-entry > *, .end-actions > .btn').forEach(el => {
+      content.querySelectorAll(selector).forEach(el => {
         if(!el.offsetParent) return;
         const b = el.getBoundingClientRect();
         for(const [x, y] of [[b.left, b.top], [b.right, b.top], [b.left, b.bottom], [b.right, b.bottom]]){
@@ -3033,14 +3095,18 @@ document.addEventListener('touchmove', function(e){
       content.style.transform = `scale(${scale.toFixed(3)})`;
     }
   }
-  window.addEventListener('resize', () => fitEndScreen());
+  window.addEventListener('resize', () => {
+    fitEndScreen();
+    fitMenu();
+    fitInPlate(els['leaderboard-screen'], document.getElementById('leaderboard-content'), 'h2, .timing-switch, .leaderboard-row, p, .btn');
+  });
 
   /** Fills in the end-of-run card (title, message and the stat cells). */
   function renderEndSummary(isChallenge){
-    els['end-title'].textContent = isChallenge ? tierText(CHALLENGE_END_TITLES, state.points) : 'Nice digging';
-    els['end-message'].textContent = isChallenge ? tierText(CHALLENGE_END_MESSAGES, state.points) : tierText(END_MESSAGES, state.points);
+    els['end-title'].textContent = isChallenge ? challengeTier(CHALLENGE_END_TITLES) : 'Nice digging';
+    els['end-message'].textContent = isChallenge ? challengeTier(CHALLENGE_END_MESSAGES) : tierText(END_MESSAGES, state.points);
     els['end-a'].textContent = state.points;
-    els['end-a-label'].textContent = 'points';
+    els['end-a-label'].textContent = isChallenge ? `points in ${state.runSecs} seconds` : 'points';
     els['end-b'].textContent = state.pieces;
     els['end-b-label'].textContent = isChallenge ? 'chicken found' : 'pieces picked';
     els['end-c'].textContent = state.chiliesMoved;
@@ -3062,6 +3128,7 @@ document.addEventListener('touchmove', function(e){
     els['end-screen'].classList.add('hidden');
     els['start-screen'].classList.remove('hidden');
     setMenuChrome(true);
+    fitMenu();
   }
 
   // ============ wiring ============
@@ -3073,6 +3140,7 @@ document.addEventListener('touchmove', function(e){
   function swapScreens(hideId, showId){
     els[hideId].classList.add('hidden');
     els[showId].classList.remove('hidden');
+    if(showId === 'start-screen') fitMenu();
   }
 
   // plate interaction (delegated)
@@ -3230,9 +3298,23 @@ document.addEventListener('touchmove', function(e){
 
   // leaderboard screen
   onClickStop('leaderboard-btn', () => {
-    renderLeaderboard();
+    state.boardView = state.challengeSecs;
     swapScreens('start-screen', 'leaderboard-screen');
+    renderLeaderboard();   // after the swap, so it can be measured to fit the plate
   });
+  // timing switches: the menu's 30s / 60s pick, and the leaderboard's tabs
+  function updateTimingSwitch(){
+    for(const t of CONFIG.challengeTimings){
+      const b = document.getElementById('timing-' + t);
+      if(b) b.setAttribute('aria-pressed', String(t === state.challengeSecs));
+    }
+  }
+  for(const t of CONFIG.challengeTimings){
+    const pick = document.getElementById('timing-' + t);
+    if(pick) pick.addEventListener('click', e => { e.stopPropagation(); state.challengeSecs = t; saveBest(); updateTimingSwitch(); });
+    const tab = document.getElementById('board-' + t);
+    if(tab) tab.addEventListener('click', e => { e.stopPropagation(); state.boardView = t; renderLeaderboard(); });
+  }
   onClickStop('leaderboard-back-btn', () => swapScreens('leaderboard-screen', 'start-screen'));
 
   // leaderboard name entry — up to 4 characters, saved onto the run that just qualified
@@ -3848,6 +3930,8 @@ document.addEventListener('touchmove', function(e){
   // ============ boot ============
   loadBest();
   updateBestScoreDisplay();
+  updateTimingSwitch();
+  requestAnimationFrame(fitMenu);
   drawPlatePattern();
   drawSpeckles();
   updateShopUI(true);

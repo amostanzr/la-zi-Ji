@@ -736,7 +736,10 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
   .combo-idle{position:absolute; left:0; right:0; top:0; bottom:0; display:flex; flex-direction:column; justify-content:space-between; transition:opacity .3s ease;}
   .combo-slot.live .combo-idle{opacity:0;}
   .combo-idle-gauge{display:block; height:7px; margin:0 2px 6px 8px; transform:skewX(-20deg); border-radius:2px;
-    background:rgba(0,0,0,0.4); border:1px solid rgba(244,241,230,0.18);}
+    background:rgba(0,0,0,0.4); border:1px solid rgba(244,241,230,0.18); overflow:hidden;}
+  /* x1 and x2 warm the empty bar up: it fills a third, then two thirds, and drains over the window */
+  .combo-warm-count{font-weight:800; color:#F0A15E; font-variant-numeric:tabular-nums;}
+  .combo-idle-fill{display:block; height:100%; transform-origin:left center; transform:scaleX(0); background:linear-gradient(90deg, #8C4A1E, #F0A15E);}
   .combo-heat{position:absolute; right:-16px; bottom:-16px; width:calc(var(--combo-w,104px) + 60px); height:170px; pointer-events:none;}
   .combo-meter{position:absolute; right:-4px; bottom:-14px; width:150px; height:92px; transform:scale(var(--combo-scale,0.74)); transform-origin:100% 100%;
     --r1:#C9D2DA; --r2:#8C9AA6; --r3:#4E5B66; --rc:#C9D2DA; --glow:rgba(200,215,230,0.55);}
@@ -976,7 +979,7 @@ window.__splashShownAt = (window.performance && performance.now) ? performance.n
       <div class="stat" id="hud-found-wrap" style="display:none;"><span class="label">points</span><span class="value" id="hud-found">0</span></div>
       <div class="stat" id="hud-timer-wrap" style="display:none;"><span class="label">time</span><span class="value" id="hud-timer">60</span></div>
       <div class="stat combo-slot" id="combo-slot" style="display:none;" aria-hidden="true">
-        <div class="combo-idle"><span class="label">combo</span><i class="combo-idle-gauge" id="combo-idle-gauge"></i></div>
+        <div class="combo-idle"><span class="label">combo <b class="combo-warm-count" id="combo-warm-count"></b></span><i class="combo-idle-gauge" id="combo-idle-gauge"><i class="combo-idle-fill" id="combo-idle-fill"></i></i></div>
         <canvas class="combo-heat" id="combo-heat"></canvas>
         <div class="combo-meter off" id="combo-meter">
           <div class="cm-body" id="cm-body">
@@ -1289,7 +1292,8 @@ document.addEventListener('touchmove', function(e){
     // Challenge combo: chicken picked within the window of the last pick builds a combo; from the
     // 3rd pick each one earns +1, and from the 6th +2, on top of its normal points. From x3 the meter
     // shows a heat rank, and each rank has its own window: the hotter the rank, the less time to keep it.
-    combo: { windowMs: 3000, showFrom: 3, bonusFrom: 3, bigBonusFrom: 6, bonus: 1, bigBonus: 2,
+    // Each chili tossed during a combo wins back tossRefillMs of its window (never past the full window).
+    combo: { windowMs: 3000, showFrom: 3, bonusFrom: 3, bigBonusFrom: 6, bonus: 1, bigBonus: 2, tossRefillMs: 250,
       ranks: [
         { at:3,  label:'D',   windowMs:3000 },
         { at:5,  label:'C',   windowMs:2800 },
@@ -1375,7 +1379,7 @@ document.addEventListener('touchmove', function(e){
   // ============ DOM lookups ============
   const els = {};
   ['plate','layer','first-hint','plate-pattern','speck','hud-pieces','hud-points','hud-bar','subbar',
-   'hud-pieces-wrap','hud-points-wrap','hud-found-wrap','hud-found','hud-retry-btn','combo-slot','combo-meter','cm-body','cm-letter','cm-word','cm-count','cm-gauge','cm-flash','combo-idle-gauge','combo-heat','combo-sparks','combo-result',
+   'hud-pieces-wrap','hud-points-wrap','hud-found-wrap','hud-found','hud-retry-btn','combo-slot','combo-meter','cm-body','cm-letter','cm-word','cm-count','cm-gauge','cm-flash','combo-idle-gauge','combo-idle-fill','combo-warm-count','combo-heat','combo-sparks','combo-result',
    'deco-saucer','deco-topsticks','safe-probe','hud-stats',
    'upgrades-wrap','upg-mini',
    'quit-btn','howto-toggle','howto-body','settings-btn','settings-panel','music-toggle','music-volume','sfx-toggle','sfx-volume',
@@ -2459,6 +2463,7 @@ document.addEventListener('touchmove', function(e){
     activeChilies.delete(chili);
     Sfx.toss(chili.x);
     state.chiliesMoved += 1;
+    topUpCombo();
     updateHud();
 
     // whatever this chili was covering may now be free
@@ -2794,6 +2799,16 @@ document.addEventListener('touchmove', function(e){
     ComboMeter.show(state.combo, comboRankIndex(state.combo), state.comboWindow);
     return state.combo >= c.bigBonusFrom ? c.bigBonus : state.combo >= c.bonusFrom ? c.bonus : 0;
   }
+  /** Digging keeps a combo alive: a toss wins back a little of the window, up to the full window. */
+  function topUpCombo(){
+    if(state.mode !== 'challenge' || !state.comboTimer) return;
+    const now = performance.now();
+    state.lastPickAt += Math.min(CONFIG.combo.tossRefillMs, now - state.lastPickAt);
+    const elapsed = now - state.lastPickAt;
+    clearTimeout(state.comboTimer);
+    state.comboTimer = setTimeout(endCombo, state.comboWindow - elapsed);
+    ComboMeter.sync(elapsed);
+  }
   function endCombo(){
     clearTimeout(state.comboTimer);
     state.comboTimer = null;
@@ -2821,10 +2836,12 @@ document.addEventListener('touchmove', function(e){
     SSS: { word:'麻辣<br>MALA!!!', r1:'#FFF2C2', r2:'#FFB020', r3:'#C0180C', rc:'#FFD24A', glow:'rgba(255,200,60,0.85)', heat:{ smoke:0, ember:8, flame:42, tall:1.75, spark:7, white:0.65 } }
   };
   const COMBO_IDLE_HEAT = { smoke:2.2, ember:0.5, flame:0, tall:0, spark:0, white:0 };
+  const COMBO_WARM_HEAT = [COMBO_IDLE_HEAT,   // x1 and x2, before the first rank: a little more smoke and a few more embers
+    { smoke:2.8, ember:1.0, flame:0, tall:0, spark:0, white:0 }, { smoke:3.2, ember:1.4, flame:0, tall:0, spark:0, white:0 }];
 
   const ComboMeter = (function(){
     const reduce = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-    let rankIdx = -1, gaugeAnim = null, heat = COMBO_IDLE_HEAT, running = false, raf = 0, last = 0;
+    let rankIdx = -1, gaugeAnim = null, warmAnim = null, heat = COMBO_IDLE_HEAT, running = false, raf = 0, last = 0;
     let W = 0, H = 0, edge = null, bctx = null, fctx = null;
     const parts = [], carry = { smoke:0, ember:0, flame:0, spark:0 };
     const anim = (el, frames, opts) => (el.animate && !reduce) ? el.animate(frames, opts) : null;
@@ -2932,7 +2949,18 @@ document.addEventListener('touchmove', function(e){
         if(bctx){ bctx.clearRect(0, 0, W, H); fctx.clearRect(0, 0, W, H); }
       },
       show(combo, idx, windowMs){
-        if(idx < 0) return;
+        if(warmAnim){ warmAnim.cancel(); warmAnim = null; }
+        if(idx < 0){
+          // warming up: the empty bar fills a third per pick and drains over the window
+          const k = Math.min(1, combo / CONFIG.combo.showFrom);
+          heat = COMBO_WARM_HEAT[Math.min(combo, COMBO_WARM_HEAT.length - 1)];
+          warmAnim = anim(els['combo-idle-fill'], [{ transform:'scaleX(' + k + ')' }, { transform:'scaleX(0)' }], { duration:windowMs, easing:'linear', fill:'forwards' });
+          if(!warmAnim) els['combo-idle-fill'].style.transform = 'scaleX(' + k + ')';
+          els['combo-warm-count'].textContent = '\u00d7' + combo;
+          return;
+        }
+        els['combo-idle-fill'].style.transform = '';
+        els['combo-warm-count'].textContent = '';
         els['cm-count'].textContent = '×' + combo;
         els['combo-meter'].classList.remove('off');
         els['combo-slot'].classList.add('live');
@@ -2957,9 +2985,17 @@ document.addEventListener('touchmove', function(e){
           { duration:360, delay:120, easing:'ease-out', fill:'backwards' });
         if(running) burst(10 + idx * 4);               // rank up: a puff of sparks from the letter
       },
+      /** Moves the draining bar to `elapsed` ms into the window (after a toss wins time back). */
+      sync(elapsed){
+        const a = gaugeAnim || warmAnim;
+        if(a) a.currentTime = elapsed;
+      },
       hide(){
         rankIdx = -1;
         heat = COMBO_IDLE_HEAT;
+        if(warmAnim){ warmAnim.cancel(); warmAnim = null; }
+        els['combo-idle-fill'].style.transform = '';
+        els['combo-warm-count'].textContent = '';
         if(gaugeAnim){ gaugeAnim.cancel(); gaugeAnim = null; }
         els['combo-meter'].classList.add('off');
         els['combo-slot'].classList.remove('live');
